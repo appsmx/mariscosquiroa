@@ -56,8 +56,8 @@ export default function OrganizationSchema() {
       { "@type": "City", name: "San Quintín" },
     ],
     sameAs: [
-      "https://facebook.com/mariscosquiroa",
-      "https://instagram.com/mariscosquiroa",
+      "https://www.facebook.com/profile.php?id=61594028451624",
+      "https://www.instagram.com/mariscos.quiroa/",
       "https://tiktok.com/@mariscosquiroa",
     ],
     aggregateRating: {

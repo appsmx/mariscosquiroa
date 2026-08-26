@@ -45,8 +45,8 @@ export const siteConfig = {
 
   // ---- Redes sociales ----
   social: {
-    facebook: "https://facebook.com/mariscosquiroa", // TODO: crear
-    instagram: "https://instagram.com/mariscosquiroa", // TODO: crear
+    facebook: "https://www.facebook.com/profile.php?id=61594028451624", // TODO: crear
+    instagram: "https://www.instagram.com/mariscos.quiroa/", // TODO: crear
     tiktok: "https://tiktok.com/@mariscosquiroa", // TODO: crear
   },
 
