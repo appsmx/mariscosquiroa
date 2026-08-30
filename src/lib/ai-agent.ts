@@ -9,203 +9,71 @@ import { db } from "@/lib/db";
  *  - Puede agregar productos al carrito del usuario (devuelve acciones)
  *  - Escala a humano cuando no puede resolver
  *
- * Usa DeepSeek vía HTTP directo (compatible OpenAI). Independiente del proveedor:
- * si falta la API key o falla la llamada, cae a un fallback inteligente basado
+ * Usa el proxy LLM centralizado de LOGAN OS (POST /api/llm). LOGAN maneja las
+ * API keys y la cascada de proveedores (gratis primero → de pago al final).
+ * Mariscos Quiroa NO tiene keys de IA propias — solo el secreto compartido
+ * LOGAN_LLM_SECRET. Si LOGAN no responde, cae a un fallback inteligente basado
  * en el catálogo real (nunca deja al cliente sin respuesta).
+ * Arquitectura: DEC-LOGAN-006 (independencia de proveedor) + modelo reseller.
  */
 
-const GEMINI_BASE_URL = process.env.GEMINI_BASE_URL || "https://generativelanguage.googleapis.com/v1beta";
-const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
+const LOGAN_LLM_URL = process.env.LOGAN_LLM_URL || "https://logancorp.vercel.app/api/llm";
 
 type LLMMessage = { role: "system" | "user" | "assistant"; content: string };
 
 /**
- * Proveedores OpenAI-compatibles (mismo formato /chat/completions).
- * Se activan solo si su API key está configurada. El orden de la cascada
- * se define en LLM_CASCADE más abajo.
- */
-const OPENAI_COMPATIBLE_PROVIDERS: Record<
-  string,
-  { envKey: string; baseUrl: string; model: string; label: string }
-> = {
-  deepseek: {
-    envKey: "DEEPSEEK_API_KEY",
-    baseUrl: process.env.DEEPSEEK_BASE_URL || "https://api.deepseek.com",
-    model: process.env.DEEPSEEK_MODEL || "deepseek-v4-flash",
-    label: "DeepSeek",
-  },
-  openai: {
-    envKey: "OPENAI_API_KEY",
-    baseUrl: process.env.OPENAI_BASE_URL || "https://api.openai.com/v1",
-    model: process.env.OPENAI_MODEL || "gpt-4o-mini",
-    label: "ChatGPT",
-  },
-  glm: {
-    envKey: "GLM_API_KEY",
-    baseUrl: process.env.GLM_BASE_URL || "https://api.z.ai/api/paas/v4",
-    model: process.env.GLM_MODEL || "glm-4-flash",
-    label: "GLM",
-  },
-  groq: {
-    envKey: "GROQ_API_KEY",
-    baseUrl: process.env.GROQ_BASE_URL || "https://api.groq.com/openai/v1",
-    model: process.env.GROQ_MODEL || "llama-3.3-70b-versatile",
-    label: "Groq",
-  },
-  openrouter: {
-    envKey: "OPENROUTER_API_KEY",
-    baseUrl: process.env.OPENROUTER_BASE_URL || "https://openrouter.ai/api/v1",
-    model: process.env.OPENROUTER_MODEL || "meta-llama/llama-3.3-70b-instruct:free",
-    label: "OpenRouter",
-  },
-  mistral: {
-    envKey: "MISTRAL_API_KEY",
-    baseUrl: process.env.MISTRAL_BASE_URL || "https://api.mistral.ai/v1",
-    model: process.env.MISTRAL_MODEL || "mistral-small-latest",
-    label: "Mistral",
-  },
-};
-
-/**
- * Orden de la cascada de proveedores. Cada uno se intenta solo si su API key
- * está configurada; si falla o no está, pasa al siguiente. Al final, el caller
- * cae al fallback del catálogo.
+ * Llama al proxy LLM de LOGAN OS. LOGAN elige el proveedor (cascada por costo)
+ * y usa SUS propias API keys. Devuelve texto ya limpio de markdown.
+ * Lanza error si LOGAN no responde, para que el caller caiga al fallback.
  *
- * Orden pedido: Gemini (gratis) → DeepSeek → ChatGPT → GLM → Groq → OpenRouter → Mistral
- * (Groq, OpenRouter y Mistral también tienen tier gratuito — se activan al poner su key.)
- */
-const LLM_CASCADE = ["gemini", "deepseek", "openai", "glm", "groq", "openrouter", "mistral"];
-
-/**
- * Orquestador de proveedores LLM con cascada configurable.
- * Devuelve texto ya limpio de markdown. Lanza error solo si TODOS fallan.
+ * Formato del endpoint (logan-app /api/llm):
+ *   body: { task, systemPrompt, userMessage, history, maxTokens, temperature }
+ *   resp: { text, provider, model }
  */
 async function callLLM(
   messages: LLMMessage[],
   opts: { temperature?: number; maxTokens?: number } = {}
 ): Promise<string> {
-  let lastError: any = null;
-
-  for (const provider of LLM_CASCADE) {
-    try {
-      if (provider === "gemini") {
-        if (!process.env.GEMINI_API_KEY) continue;
-        const out = await callGemini(messages, opts);
-        if (out) return out;
-      } else {
-        const cfg = OPENAI_COMPATIBLE_PROVIDERS[provider];
-        if (!cfg || !process.env[cfg.envKey]) continue;
-        const out = await callOpenAICompatible(cfg, messages, opts);
-        if (out) return out;
-      }
-    } catch (e: any) {
-      lastError = e;
-      console.log(`Proveedor '${provider}' no disponible, intentando siguiente:`, e?.message || "unknown");
-    }
-  }
-
-  throw new Error(`Ningún proveedor LLM disponible. Último error: ${lastError?.message || "sin proveedores configurados"}`);
-}
-
-/**
- * Llama a cualquier proveedor con API compatible con OpenAI (/chat/completions).
- * DeepSeek, OpenAI (ChatGPT), GLM (Z.ai), Groq, OpenRouter y Mistral usan este formato.
- */
-async function callOpenAICompatible(
-  cfg: { envKey: string; baseUrl: string; model: string; label: string },
-  messages: LLMMessage[],
-  opts: { temperature?: number; maxTokens?: number } = {}
-): Promise<string> {
-  const apiKey = process.env[cfg.envKey];
-  if (!apiKey) throw new Error(`${cfg.envKey} no configurada`);
+  // Separar el system prompt del resto (LOGAN lo recibe aparte)
+  const systemMsg = messages.find((m) => m.role === "system");
+  const conversation = messages.filter((m) => m.role !== "system");
+  const lastUser = [...conversation].reverse().find((m) => m.role === "user");
+  const history = conversation.filter((m) => m !== lastUser);
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 25_000);
 
   try {
-    const res = await fetch(`${cfg.baseUrl}/chat/completions`, {
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (process.env.LOGAN_LLM_SECRET) {
+      headers["Authorization"] = `Bearer ${process.env.LOGAN_LLM_SECRET}`;
+    }
+
+    const res = await fetch(LOGAN_LLM_URL, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
+      headers,
       body: JSON.stringify({
-        model: cfg.model,
-        messages,
+        task: "assistant",
+        systemPrompt: systemMsg?.content || "",
+        userMessage: lastUser?.content || "",
+        history,
         temperature: opts.temperature ?? 0.7,
-        max_tokens: opts.maxTokens ?? 600,
-        stream: false,
+        maxTokens: opts.maxTokens ?? 600,
       }),
       signal: controller.signal,
     });
 
     if (!res.ok) {
       const errText = await res.text().catch(() => "");
-      throw new Error(`${cfg.label} HTTP ${res.status}: ${errText.slice(0, 200)}`);
+      throw new Error(`LOGAN LLM HTTP ${res.status}: ${errText.slice(0, 200)}`);
     }
 
     const data = await res.json();
-    return stripMarkdown(data?.choices?.[0]?.message?.content?.trim() || "");
+    return stripMarkdown((data?.text || "").trim());
   } finally {
     clearTimeout(timeout);
   }
 }
-
-/**
- * Llama a la API de Gemini (Google AI Studio, formato generateContent).
- * Convierte el formato de mensajes OpenAI al formato de Gemini.
- */
-async function callGemini(
-  messages: LLMMessage[],
-  opts: { temperature?: number; maxTokens?: number } = {}
-): Promise<string> {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) throw new Error("GEMINI_API_KEY no configurada");
-
-  // Gemini separa el system prompt en systemInstruction; el resto va en contents.
-  const systemMsg = messages.find((m) => m.role === "system");
-  const turns = messages.filter((m) => m.role !== "system");
-
-  const contents = turns.map((m) => ({
-    role: m.role === "assistant" ? "model" : "user",
-    parts: [{ text: m.content }],
-  }));
-
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 25_000);
-
-  try {
-    const res = await fetch(
-      `${GEMINI_BASE_URL}/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...(systemMsg ? { systemInstruction: { parts: [{ text: systemMsg.content }] } } : {}),
-          contents,
-          generationConfig: {
-            temperature: opts.temperature ?? 0.7,
-            maxOutputTokens: opts.maxTokens ?? 600,
-          },
-        }),
-        signal: controller.signal,
-      }
-    );
-
-    if (!res.ok) {
-      const errText = await res.text().catch(() => "");
-      throw new Error(`Gemini HTTP ${res.status}: ${errText.slice(0, 200)}`);
-    }
-
-    const data = await res.json();
-    const text = data?.candidates?.[0]?.content?.parts?.map((p: any) => p.text).join("") || "";
-    return stripMarkdown(text.trim());
-  } finally {
-    clearTimeout(timeout);
-  }
-}
-
-
 
 /**
  * Limpia formato markdown de la respuesta del modelo (red de seguridad por si
