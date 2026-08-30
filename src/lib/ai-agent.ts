@@ -14,37 +14,123 @@ import { db } from "@/lib/db";
  * en el catálogo real (nunca deja al cliente sin respuesta).
  */
 
-const DEEPSEEK_BASE_URL = process.env.DEEPSEEK_BASE_URL || "https://api.deepseek.com";
-const DEEPSEEK_MODEL = process.env.DEEPSEEK_MODEL || "deepseek-v4-flash";
+const GEMINI_BASE_URL = process.env.GEMINI_BASE_URL || "https://generativelanguage.googleapis.com/v1beta";
+const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
 
 type LLMMessage = { role: "system" | "user" | "assistant"; content: string };
 
 /**
- * Llama a DeepSeek (Chat Completions, compatible con OpenAI) vía fetch.
- * Lanza error si la key no está configurada o la respuesta no es OK,
- * para que el caller pueda caer al fallback.
+ * Proveedores OpenAI-compatibles (mismo formato /chat/completions).
+ * Se activan solo si su API key está configurada. El orden de la cascada
+ * se define en LLM_CASCADE más abajo.
  */
-async function callDeepSeek(
+const OPENAI_COMPATIBLE_PROVIDERS: Record<
+  string,
+  { envKey: string; baseUrl: string; model: string; label: string }
+> = {
+  deepseek: {
+    envKey: "DEEPSEEK_API_KEY",
+    baseUrl: process.env.DEEPSEEK_BASE_URL || "https://api.deepseek.com",
+    model: process.env.DEEPSEEK_MODEL || "deepseek-v4-flash",
+    label: "DeepSeek",
+  },
+  openai: {
+    envKey: "OPENAI_API_KEY",
+    baseUrl: process.env.OPENAI_BASE_URL || "https://api.openai.com/v1",
+    model: process.env.OPENAI_MODEL || "gpt-4o-mini",
+    label: "ChatGPT",
+  },
+  glm: {
+    envKey: "GLM_API_KEY",
+    baseUrl: process.env.GLM_BASE_URL || "https://api.z.ai/api/paas/v4",
+    model: process.env.GLM_MODEL || "glm-4-flash",
+    label: "GLM",
+  },
+  groq: {
+    envKey: "GROQ_API_KEY",
+    baseUrl: process.env.GROQ_BASE_URL || "https://api.groq.com/openai/v1",
+    model: process.env.GROQ_MODEL || "llama-3.3-70b-versatile",
+    label: "Groq",
+  },
+  openrouter: {
+    envKey: "OPENROUTER_API_KEY",
+    baseUrl: process.env.OPENROUTER_BASE_URL || "https://openrouter.ai/api/v1",
+    model: process.env.OPENROUTER_MODEL || "meta-llama/llama-3.3-70b-instruct:free",
+    label: "OpenRouter",
+  },
+  mistral: {
+    envKey: "MISTRAL_API_KEY",
+    baseUrl: process.env.MISTRAL_BASE_URL || "https://api.mistral.ai/v1",
+    model: process.env.MISTRAL_MODEL || "mistral-small-latest",
+    label: "Mistral",
+  },
+};
+
+/**
+ * Orden de la cascada de proveedores. Cada uno se intenta solo si su API key
+ * está configurada; si falla o no está, pasa al siguiente. Al final, el caller
+ * cae al fallback del catálogo.
+ *
+ * Orden pedido: Gemini (gratis) → DeepSeek → ChatGPT → GLM → Groq → OpenRouter → Mistral
+ * (Groq, OpenRouter y Mistral también tienen tier gratuito — se activan al poner su key.)
+ */
+const LLM_CASCADE = ["gemini", "deepseek", "openai", "glm", "groq", "openrouter", "mistral"];
+
+/**
+ * Orquestador de proveedores LLM con cascada configurable.
+ * Devuelve texto ya limpio de markdown. Lanza error solo si TODOS fallan.
+ */
+async function callLLM(
   messages: LLMMessage[],
   opts: { temperature?: number; maxTokens?: number } = {}
 ): Promise<string> {
-  const apiKey = process.env.DEEPSEEK_API_KEY;
-  if (!apiKey) {
-    throw new Error("DEEPSEEK_API_KEY no configurada");
+  let lastError: any = null;
+
+  for (const provider of LLM_CASCADE) {
+    try {
+      if (provider === "gemini") {
+        if (!process.env.GEMINI_API_KEY) continue;
+        const out = await callGemini(messages, opts);
+        if (out) return out;
+      } else {
+        const cfg = OPENAI_COMPATIBLE_PROVIDERS[provider];
+        if (!cfg || !process.env[cfg.envKey]) continue;
+        const out = await callOpenAICompatible(cfg, messages, opts);
+        if (out) return out;
+      }
+    } catch (e: any) {
+      lastError = e;
+      console.log(`Proveedor '${provider}' no disponible, intentando siguiente:`, e?.message || "unknown");
+    }
   }
+
+  throw new Error(`Ningún proveedor LLM disponible. Último error: ${lastError?.message || "sin proveedores configurados"}`);
+}
+
+/**
+ * Llama a cualquier proveedor con API compatible con OpenAI (/chat/completions).
+ * DeepSeek, OpenAI (ChatGPT), GLM (Z.ai), Groq, OpenRouter y Mistral usan este formato.
+ */
+async function callOpenAICompatible(
+  cfg: { envKey: string; baseUrl: string; model: string; label: string },
+  messages: LLMMessage[],
+  opts: { temperature?: number; maxTokens?: number } = {}
+): Promise<string> {
+  const apiKey = process.env[cfg.envKey];
+  if (!apiKey) throw new Error(`${cfg.envKey} no configurada`);
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 25_000);
 
   try {
-    const res = await fetch(`${DEEPSEEK_BASE_URL}/chat/completions`, {
+    const res = await fetch(`${cfg.baseUrl}/chat/completions`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: DEEPSEEK_MODEL,
+        model: cfg.model,
         messages,
         temperature: opts.temperature ?? 0.7,
         max_tokens: opts.maxTokens ?? 600,
@@ -55,7 +141,7 @@ async function callDeepSeek(
 
     if (!res.ok) {
       const errText = await res.text().catch(() => "");
-      throw new Error(`DeepSeek HTTP ${res.status}: ${errText.slice(0, 200)}`);
+      throw new Error(`${cfg.label} HTTP ${res.status}: ${errText.slice(0, 200)}`);
     }
 
     const data = await res.json();
@@ -64,6 +150,62 @@ async function callDeepSeek(
     clearTimeout(timeout);
   }
 }
+
+/**
+ * Llama a la API de Gemini (Google AI Studio, formato generateContent).
+ * Convierte el formato de mensajes OpenAI al formato de Gemini.
+ */
+async function callGemini(
+  messages: LLMMessage[],
+  opts: { temperature?: number; maxTokens?: number } = {}
+): Promise<string> {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) throw new Error("GEMINI_API_KEY no configurada");
+
+  // Gemini separa el system prompt en systemInstruction; el resto va en contents.
+  const systemMsg = messages.find((m) => m.role === "system");
+  const turns = messages.filter((m) => m.role !== "system");
+
+  const contents = turns.map((m) => ({
+    role: m.role === "assistant" ? "model" : "user",
+    parts: [{ text: m.content }],
+  }));
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 25_000);
+
+  try {
+    const res = await fetch(
+      `${GEMINI_BASE_URL}/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...(systemMsg ? { systemInstruction: { parts: [{ text: systemMsg.content }] } } : {}),
+          contents,
+          generationConfig: {
+            temperature: opts.temperature ?? 0.7,
+            maxOutputTokens: opts.maxTokens ?? 600,
+          },
+        }),
+        signal: controller.signal,
+      }
+    );
+
+    if (!res.ok) {
+      const errText = await res.text().catch(() => "");
+      throw new Error(`Gemini HTTP ${res.status}: ${errText.slice(0, 200)}`);
+    }
+
+    const data = await res.json();
+    const text = data?.candidates?.[0]?.content?.parts?.map((p: any) => p.text).join("") || "";
+    return stripMarkdown(text.trim());
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+
 
 /**
  * Limpia formato markdown de la respuesta del modelo (red de seguridad por si
@@ -241,10 +383,10 @@ export async function processCustomerMessage(
         { role: "user", content: message },
       ];
 
-      content = await callDeepSeek(messages, { temperature: 0.7, maxTokens: 600 });
+      content = await callLLM(messages, { temperature: 0.7, maxTokens: 600 });
     } catch (llmError: any) {
-      // Si DeepSeek falla (sin key, sin crédito, timeout), usar fallback inteligente
-      console.log("DeepSeek no disponible, usando fallback:", llmError?.message || "unknown");
+      // Si TODOS los proveedores (Gemini + DeepSeek) fallan, usar fallback inteligente
+      console.log("Ningún proveedor LLM disponible, usando fallback:", llmError?.message || "unknown");
       content = await generateFallbackResponse(message);
     }
 
@@ -427,7 +569,7 @@ Importante: usa español mexicano. Nunca uses voseo (no digas "tenés", "podés"
 
 No uses emojis. No uses markdown. Texto plano, conversacional.`;
 
-    const content = await callDeepSeek(
+    const content = await callLLM(
       [
         { role: "system", content: "Eres un asistente de gestión de negocios conciso y accionable. Hablas español mexicano (sin voseo)." },
         { role: "user", content: prompt },
