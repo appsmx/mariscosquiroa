@@ -3,6 +3,7 @@
 import { Award, Anchor, Users, MapPin } from "lucide-react";
 import { siteConfig as fallbackConfig } from "@/lib/site-data";
 import { useSiteConfig } from "@/hooks/use-site-config";
+import { useI18n } from "@/i18n/I18nProvider";
 
 const timeline = [
   {
@@ -33,6 +34,7 @@ const timeline = [
 
 export function About() {
   const { data: siteConfig } = useSiteConfig();
+  const { t, locale } = useI18n();
   const config = siteConfig || fallbackConfig;
   return (
     <section id="nosotros" className="relative py-20 sm:py-28 bg-background overflow-hidden">
@@ -58,13 +60,17 @@ export function About() {
                 </span>
                 <div>
                   <p className="font-display text-2xl font-bold text-foreground">
-                    +{config.brand.trajectoryYears} años
+                    +{config.brand.trajectoryYears} {locale === "es" ? "años" : "years"}
                   </p>
-                  <p className="text-xs text-muted-foreground">de trayectoria</p>
+                  <p className="text-xs text-muted-foreground">
+                    {locale === "es" ? "de trayectoria" : "in business"}
+                  </p>
                 </div>
               </div>
               <p className="mt-3 text-xs text-muted-foreground leading-relaxed">
-                Abasteciendo a la región desde {config.brand.foundedYear}.
+                {locale === "es"
+                  ? `Abasteciendo a la región desde ${config.brand.foundedYear}.`
+                  : `Supplying the region since ${config.brand.foundedYear}.`}
               </p>
             </div>
 
@@ -75,10 +81,10 @@ export function About() {
           {/* Contenido */}
           <div className="order-1 lg:order-2">
             <span className="inline-flex items-center gap-2 rounded-full bg-ocean-50 border border-ocean-100 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-ocean-700">
-              Nuestra historia
+              {t.about.badge}
             </span>
             <h2 className="mt-4 font-display text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight text-foreground">
-              Del puerto a tu mesa, desde 2008
+              {t.about.title}
             </h2>
             <p className="mt-5 text-base sm:text-lg text-muted-foreground leading-relaxed">
               {config.brand.description}
@@ -89,17 +95,17 @@ export function About() {
               <div className="rounded-xl border border-border bg-card p-4">
                 <Users className="h-5 w-5 text-ocean-600" />
                 <p className="mt-2 font-display text-2xl font-bold text-foreground">+800</p>
-                <p className="text-xs text-muted-foreground">Clientes activos</p>
+                <p className="text-xs text-muted-foreground">{locale === "es" ? "Clientes activos" : "Active customers"}</p>
               </div>
               <div className="rounded-xl border border-border bg-card p-4">
                 <Anchor className="h-5 w-5 text-ocean-600" />
                 <p className="mt-2 font-display text-2xl font-bold text-foreground">12</p>
-                <p className="text-xs text-muted-foreground">Cooperativas aliadas</p>
+                <p className="text-xs text-muted-foreground">{locale === "es" ? "Cooperativas aliadas" : "Partner cooperatives"}</p>
               </div>
               <div className="rounded-xl border border-border bg-card p-4">
                 <MapPin className="h-5 w-5 text-ocean-600" />
                 <p className="mt-2 font-display text-2xl font-bold text-foreground">5</p>
-                <p className="text-xs text-muted-foreground">Ciudades servidas</p>
+                <p className="text-xs text-muted-foreground">{locale === "es" ? "Ciudades servidas" : "Cities served"}</p>
               </div>
             </div>
 
