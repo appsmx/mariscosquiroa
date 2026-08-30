@@ -28,38 +28,56 @@ import { useApi } from "@/hooks/use-api";
 import { useSiteConfig } from "@/hooks/use-site-config";
 import { useCart } from "@/hooks/use-cart";
 import type { Product } from "@/lib/site-data";
+import { useI18n } from "@/i18n/I18nProvider";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
-const categoryLabels: Record<string, string> = {
-  todos: "Todos",
-  marisco: "Mariscos",
-  pescado: "Pescados",
-  especialidad: "Especialidades",
+const categoryKeys = ["todos", "marisco", "pescado", "especialidad"] as const;
+
+const tagClassNames: Record<string, string> = {
+  mayoreo: "bg-ocean-100 text-ocean-700 border-ocean-200",
+  menudeo: "bg-amber-brand-100 text-amber-brand-700 border-amber-brand-200",
+  fresco: "bg-emerald-100 text-emerald-700 border-emerald-200",
+  congelado: "bg-sky-100 text-sky-700 border-sky-200",
+  premium: "bg-rose-100 text-rose-700 border-rose-200",
 };
 
-const tagConfig: Record<string, { label: string; className: string }> = {
-  mayoreo: { label: "Mayoreo", className: "bg-ocean-100 text-ocean-700 border-ocean-200" },
-  menudeo: { label: "Menudeo", className: "bg-amber-brand-100 text-amber-brand-700 border-amber-brand-200" },
-  fresco: { label: "Fresco", className: "bg-emerald-100 text-emerald-700 border-emerald-200" },
-  congelado: { label: "Congelado", className: "bg-sky-100 text-sky-700 border-sky-200" },
-  premium: { label: "Premium", className: "bg-rose-100 text-rose-700 border-rose-200" },
-};
-
-const availabilityConfig: Record<string, { icon: typeof Clock; label: string; color: string }> = {
-  Diaria: { icon: Clock, label: "Disponible hoy", color: "text-emerald-600" },
-  Temporada: { icon: Sparkles, label: "De temporada", color: "text-amber-600" },
-  "Bajo pedido": { icon: Snowflake, label: "Bajo pedido", color: "text-sky-600" },
+const availabilityIcons: Record<string, { icon: typeof Clock; color: string }> = {
+  Diaria: { icon: Clock, color: "text-emerald-600" },
+  Temporada: { icon: Sparkles, color: "text-amber-600" },
+  "Bajo pedido": { icon: Snowflake, color: "text-sky-600" },
 };
 
 const mxn = (n: number) =>
   new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" }).format(n);
 
 function ProductCard({ product, config }: { product: Product; config: any }) {
+  const { t, locale } = useI18n();
+
+  const tagLabel = (tag: string): string => {
+    switch (tag) {
+      case "mayoreo": return t.catalog.mayoreo;
+      case "menudeo": return t.catalog.menudeo;
+      case "fresco": return locale === "es" ? "Fresco" : "Fresh";
+      case "congelado": return locale === "es" ? "Congelado" : "Frozen";
+      case "premium": return "Premium";
+      default: return tag;
+    }
+  };
+
+  const availLabel = (availability: string): string => {
+    if (availability === "Diaria") return t.catalog.daily;
+    if (availability === "Temporada") return t.catalog.seasonal;
+    if (availability === "Bajo pedido") return t.catalog.onOrder;
+    return availability;
+  };
+
   const waLink = `https://wa.me/${config.contact.whatsapp}?text=${encodeURIComponent(
-    `Hola ${config.brand.name}, me interesa cotizar ${product.name}. ¿Me pueden dar precio y disponibilidad?`
+    locale === "es"
+      ? `Hola ${config.brand.name}, me interesa cotizar ${product.name}. ¿Me pueden dar precio y disponibilidad?`
+      : `Hi ${config.brand.name}, I'm interested in a quote for ${product.name}. Can you give me price and availability?`
   )}`;
-  const avail = availabilityConfig[product.availability];
+  const avail = availabilityIcons[product.availability];
   const AvailIcon = avail.icon;
   const { channel, add } = useCart();
   const [selectedPres, setSelectedPres] = useState<string>(product.presentation[0] || "");
@@ -96,7 +114,11 @@ function ProductCard({ product, config }: { product: Product; config: any }) {
       image: product.image,
     });
     setAdded(true);
-    toast.success(`${product.name} agregado a tu cotización`);
+    toast.success(
+      locale === "es"
+        ? `${product.name} agregado a tu cotización`
+        : `${product.name} added to your quote`
+    );
     setTimeout(() => setAdded(false), 1500);
   };
 
@@ -115,7 +137,7 @@ function ProductCard({ product, config }: { product: Product; config: any }) {
         <div className="absolute top-3 left-3">
           <div className="inline-flex items-center gap-1.5 rounded-full bg-white/95 backdrop-blur-sm px-3 py-1 text-xs font-semibold shadow-md">
             <AvailIcon className={cn("h-3.5 w-3.5", avail.color)} />
-            <span className="text-foreground">{product.availability}</span>
+            <span className="text-foreground">{availLabel(product.availability)}</span>
           </div>
         </div>
 
@@ -145,7 +167,9 @@ function ProductCard({ product, config }: { product: Product; config: any }) {
           <div className="mt-4 rounded-lg bg-ocean-50 border border-ocean-100 p-3">
             <div className="flex items-baseline justify-between">
               <span className="text-[11px] font-semibold uppercase tracking-wide text-ocean-700">
-                Precio {channelLower === "mayoreo" ? "mayoreo" : "menudeo"}
+                {locale === "es"
+                  ? `Precio ${channelLower === "mayoreo" ? "mayoreo" : "menudeo"}`
+                  : `${channelLower === "mayoreo" ? "Wholesale" : "Retail"} price`}
               </span>
               <span className="font-display text-xl font-bold text-foreground">
                 {mxn(unitPrice)}
@@ -154,14 +178,16 @@ function ProductCard({ product, config }: { product: Product; config: any }) {
             </div>
             {minQty > 1 && (
               <p className="text-[10px] text-muted-foreground mt-1">
-                Mínimo: {minQty} {unit}
+                {locale === "es" ? `Mínimo: ${minQty} ${unit}` : `Min: ${minQty} ${unit}`}
               </p>
             )}
           </div>
         ) : (
           <div className="mt-4 rounded-lg bg-amber-brand-50 border border-amber-brand-200 p-3">
             <p className="text-xs text-amber-brand-700 font-medium">
-              Precio bajo cotización · consulta por WhatsApp
+              {locale === "es"
+                ? "Precio bajo cotización · consulta por WhatsApp"
+                : "Price on request · ask on WhatsApp"}
             </p>
           </div>
         )}
@@ -170,7 +196,7 @@ function ProductCard({ product, config }: { product: Product; config: any }) {
         {product.presentation.length > 0 && (
           <div className="mt-3">
             <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1.5 block">
-              Presentación
+              {locale === "es" ? "Presentación" : "Presentation"}
             </label>
             <Select value={selectedPres} onValueChange={setSelectedPres}>
               <SelectTrigger className="h-9 text-sm">
@@ -189,13 +215,13 @@ function ProductCard({ product, config }: { product: Product; config: any }) {
         {unitPrice > 0 && (
           <div className="mt-3 flex items-center gap-2">
             <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-              Cantidad
+              {t.cart.quantity}
             </label>
             <div className="flex items-center rounded-lg border border-border overflow-hidden">
               <button
                 onClick={() => setQuantity(Math.max(minQty, quantity - 1))}
                 className="px-2.5 py-1.5 text-sm hover:bg-muted transition-colors"
-                aria-label="Reducir"
+                aria-label={locale === "es" ? "Reducir" : "Decrease"}
               >
                 −
               </button>
@@ -210,7 +236,7 @@ function ProductCard({ product, config }: { product: Product; config: any }) {
               <button
                 onClick={() => setQuantity(quantity + 1)}
                 className="px-2.5 py-1.5 text-sm hover:bg-muted transition-colors"
-                aria-label="Aumentar"
+                aria-label={locale === "es" ? "Aumentar" : "Increase"}
               >
                 +
               </button>
@@ -221,11 +247,11 @@ function ProductCard({ product, config }: { product: Product; config: any }) {
 
         {/* Tags */}
         <div className="mt-4 flex flex-wrap gap-1.5">
-          {product.tags.map((t) => {
-            const cfg = tagConfig[t];
+          {product.tags.map((tag) => {
+            const className = tagClassNames[tag];
             return (
-              <Badge key={t} variant="outline" className={cn("text-[10px] font-semibold", cfg.className)}>
-                {cfg.label}
+              <Badge key={tag} variant="outline" className={cn("text-[10px] font-semibold", className)}>
+                {tagLabel(tag)}
               </Badge>
             );
           })}
@@ -243,19 +269,21 @@ function ProductCard({ product, config }: { product: Product; config: any }) {
           {added ? (
             <>
               <Check className="h-4 w-4" />
-              Agregado
+              {locale === "es" ? "Agregado" : "Added"}
             </>
           ) : (
             <>
               <Plus className="h-4 w-4" />
-              {unitPrice > 0 ? `Agregar · ${mxn(unitPrice * quantity)}` : "Cotizar por WhatsApp"}
+              {unitPrice > 0
+                ? `${t.catalog.addToCart} · ${mxn(unitPrice * quantity)}`
+                : t.nav.quote}
             </>
           )}
         </Button>
         <Button asChild variant="ghost" size="sm" className="w-full text-muted-foreground">
           <a href={waLink} target="_blank" rel="noopener noreferrer">
             <MessageCircle className="h-3.5 w-3.5" />
-            Preguntar por WhatsApp
+            {locale === "es" ? "Preguntar por WhatsApp" : "Ask on WhatsApp"}
           </a>
         </Button>
       </CardFooter>
@@ -268,6 +296,17 @@ export function ProductCatalog() {
   const { data: apiProducts, loading } = useApi<Product[]>("/api/public/products");
   const { data: siteConfig } = useSiteConfig();
   const { channel, setChannel } = useCart();
+  const { t, locale } = useI18n();
+
+  const categoryLabel = (key: string): string => {
+    switch (key) {
+      case "todos": return t.catalog.filterAll;
+      case "marisco": return t.catalog.filterMarisco;
+      case "pescado": return t.catalog.filterPescado;
+      case "especialidad": return t.catalog.filterEspecialidad;
+      default: return key;
+    }
+  };
 
   const products = apiProducts && apiProducts.length > 0 ? apiProducts : fallbackProducts;
 
@@ -284,15 +323,13 @@ export function ProductCatalog() {
         {/* Encabezado */}
         <div className="max-w-3xl">
           <span className="inline-flex items-center gap-2 rounded-full bg-ocean-50 border border-ocean-100 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-ocean-700">
-            Catálogo
+            {t.catalog.badge}
           </span>
           <h2 className="mt-4 font-display text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight text-foreground">
-            Nuestros productos del mar
+            {t.catalog.title}
           </h2>
           <p className="mt-4 text-base sm:text-lg text-muted-foreground leading-relaxed">
-            Cada producto se recibe en fresco del Pacífico mexicano. Arma tu cotización
-            seleccionando productos y cantidades — se envía directo por WhatsApp y queda
-            registrado en nuestro sistema.
+            {t.catalog.subtitle}
           </p>
         </div>
 
@@ -305,7 +342,7 @@ export function ProductCatalog() {
               channel === "MENUDEO" ? "bg-amber-brand-500 text-white shadow-sm" : "text-muted-foreground hover:text-foreground"
             )}
           >
-            Menudeo (hogar)
+            {t.catalog.menudeo} {locale === "es" ? "(hogar)" : "(home)"}
           </button>
           <button
             onClick={() => setChannel("MAYOREO")}
@@ -314,7 +351,7 @@ export function ProductCatalog() {
               channel === "MAYOREO" ? "bg-ocean-600 text-white shadow-sm" : "text-muted-foreground hover:text-foreground"
             )}
           >
-            Mayoreo (negocio)
+            {t.catalog.mayoreo} {locale === "es" ? "(negocio)" : "(business)"}
           </button>
         </div>
 
@@ -322,13 +359,13 @@ export function ProductCatalog() {
         <div className="mt-6">
           <Tabs value={category} onValueChange={setCategory}>
             <TabsList className="bg-muted/60 h-auto p-1 flex flex-wrap gap-1">
-              {Object.entries(categoryLabels).map(([value, label]) => (
+              {categoryKeys.map((key) => (
                 <TabsTrigger
-                  key={value}
-                  value={value}
+                  key={key}
+                  value={key}
                   className="data-[state=active]:bg-ocean-600 data-[state=active]:text-white rounded-md px-4 py-2 text-sm font-medium"
                 >
-                  {label}
+                  {categoryLabel(key)}
                 </TabsTrigger>
               ))}
             </TabsList>
@@ -339,7 +376,9 @@ export function ProductCatalog() {
         {loading ? (
           <div className="mt-10 flex items-center justify-center py-12">
             <Loader2 className="h-6 w-6 animate-spin text-ocean-600" />
-            <span className="ml-2 text-muted-foreground">Cargando catálogo...</span>
+            <span className="ml-2 text-muted-foreground">
+              {locale === "es" ? "Cargando catálogo..." : "Loading catalog..."}
+            </span>
           </div>
         ) : (
           <div className="mt-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 sm:gap-6">
@@ -351,16 +390,18 @@ export function ProductCatalog() {
 
         {/* Aviso */}
         <p className="mt-10 text-center text-sm text-muted-foreground">
-          ¿Buscas un producto que no está listado?{" "}
+          {locale === "es" ? "¿Buscas un producto que no está listado?" : "Looking for a product not listed?"}{" "}
           <a
             href={`https://wa.me/${activeConfig.contact.whatsapp}`}
             target="_blank"
             rel="noopener noreferrer"
             className="font-semibold text-ocean-700 hover:text-ocean-800 underline underline-offset-2"
           >
-            Consultanos directamente
+            {locale === "es" ? "Consultanos directamente" : "Contact us directly"}
           </a>
-          . Trabajamos con más de 40 especies de temporada.
+          {locale === "es"
+            ? ". Trabajamos con más de 40 especies de temporada."
+            : ". We work with over 40 seasonal species."}
         </p>
       </div>
     </section>
