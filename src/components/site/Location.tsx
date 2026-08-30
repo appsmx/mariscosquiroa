@@ -5,9 +5,11 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { siteConfig as fallbackConfig } from "@/lib/site-data";
 import { useSiteConfig } from "@/hooks/use-site-config";
+import { useI18n } from "@/i18n/I18nProvider";
 
 export function Location() {
   const { data: siteConfig } = useSiteConfig();
+  const { t, locale } = useI18n();
   if (!siteConfig) return null;
   const waLink = `https://wa.me/${siteConfig.contact.whatsapp}?text=${encodeURIComponent(
     siteConfig.contact.whatsappMessage
@@ -17,6 +19,22 @@ export function Location() {
     `${contact.address.street}, ${contact.address.city}, ${contact.address.state}, ${contact.address.zip}, México`
   );
 
+  const dayLabel = (day: string): string => {
+    switch (day) {
+      case "Lunes": return t.location.days.monday;
+      case "Martes": return t.location.days.tuesday;
+      case "Miércoles": return t.location.days.wednesday;
+      case "Jueves": return t.location.days.thursday;
+      case "Viernes": return t.location.days.friday;
+      case "Sábado": return t.location.days.saturday;
+      case "Domingo": return t.location.days.sunday;
+      default: return day;
+    }
+  };
+
+  const timeLabel = (time: string): string =>
+    time === "Cerrado" ? t.location.closed : time;
+
   return (
     <section id="ubicacion" className="relative py-20 sm:py-28 bg-muted/30">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
@@ -24,15 +42,15 @@ export function Location() {
           {/* Información de contacto */}
           <div className="flex flex-col justify-center">
             <span className="inline-flex items-center gap-2 rounded-full bg-amber-brand-50 border border-amber-brand-200 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-amber-brand-700 w-fit">
-              Visítanos o escríbenos
+              {t.location.badge}
             </span>
             <h2 className="mt-4 font-display text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight text-foreground">
-              Estamos en Playas de Rosarito, Baja California
+              {t.location.title}
             </h2>
             <p className="mt-4 text-base sm:text-lg text-muted-foreground leading-relaxed">
-              Pasa a comprar directo al mostrador, llámanos por teléfono o escríbenos por
-              WhatsApp. La atención es personalizada y siempre vas a hablar con alguien del
-              equipo, nunca con un menú automático.
+              {locale === "es"
+                ? "Pasa a comprar directo al mostrador, llámanos por teléfono o escríbenos por WhatsApp. La atención es personalizada y siempre vas a hablar con alguien del equipo, nunca con un menú automático."
+                : "Stop by the counter to buy directly, call us by phone or message us on WhatsApp. Attention is personalized and you always talk to someone from the team, never an automated menu."}
             </p>
 
             <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -41,7 +59,7 @@ export function Location() {
                   <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-ocean-100 text-ocean-700">
                     <MapPin className="h-5 w-5" />
                   </span>
-                  <h3 className="font-semibold text-foreground">Dirección</h3>
+                  <h3 className="font-semibold text-foreground">{t.location.addressLabel}</h3>
                 </div>
                 <p className="mt-3 text-sm text-muted-foreground leading-relaxed">
                   {contact.address.street}
@@ -57,7 +75,7 @@ export function Location() {
                   className="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-ocean-700 hover:text-ocean-800"
                 >
                   <Navigation className="h-3.5 w-3.5" />
-                  Cómo llegar
+                  {t.location.getDirections}
                 </a>
               </Card>
 
@@ -66,13 +84,13 @@ export function Location() {
                   <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-amber-brand-100 text-amber-brand-700">
                     <Clock className="h-5 w-5" />
                   </span>
-                  <h3 className="font-semibold text-foreground">Horarios</h3>
+                  <h3 className="font-semibold text-foreground">{t.location.hoursLabel}</h3>
                 </div>
                 <ul className="mt-3 space-y-1.5">
                   {contact.hours.map((h) => (
                     <li key={h.day} className="text-sm text-muted-foreground">
-                      <span className="font-medium text-foreground/80">{h.day}:</span>{" "}
-                      {h.time}
+                      <span className="font-medium text-foreground/80">{dayLabel(h.day)}:</span>{" "}
+                      {timeLabel(h.time)}
                     </li>
                   ))}
                 </ul>
@@ -83,7 +101,7 @@ export function Location() {
                   <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-ocean-100 text-ocean-700">
                     <Phone className="h-5 w-5" />
                   </span>
-                  <h3 className="font-semibold text-foreground">Teléfono</h3>
+                  <h3 className="font-semibold text-foreground">{t.location.phoneLabel}</h3>
                 </div>
                 <a
                   href={`tel:${contact.phone}`}
@@ -98,7 +116,7 @@ export function Location() {
                   <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-amber-brand-100 text-amber-brand-700">
                     <Mail className="h-5 w-5" />
                   </span>
-                  <h3 className="font-semibold text-foreground">Correo</h3>
+                  <h3 className="font-semibold text-foreground">{t.location.emailLabel}</h3>
                 </div>
                 <a
                   href={`mailto:${contact.email}`}
@@ -113,13 +131,13 @@ export function Location() {
               <Button asChild size="lg" className="bg-amber-brand-500 hover:bg-amber-brand-600 text-white h-12 px-6">
                 <a href={waLink} target="_blank" rel="noopener noreferrer">
                   <MessageCircle className="h-5 w-5" />
-                  Escribir por WhatsApp
+                  {locale === "es" ? "Escribir por WhatsApp" : "Message on WhatsApp"}
                 </a>
               </Button>
               <Button asChild size="lg" variant="outline" className="h-12 px-6 border-ocean-200 text-ocean-700 hover:bg-ocean-50">
                 <a href={`tel:${contact.phone}`}>
                   <Phone className="h-5 w-5" />
-                  Llamar ahora
+                  {locale === "es" ? "Llamar ahora" : "Call now"}
                 </a>
               </Button>
             </div>
@@ -140,7 +158,9 @@ export function Location() {
               </span>
               <div className="min-w-0">
                 <p className="font-semibold text-foreground text-sm leading-tight">
-                  Mariscos Quiroa — Mostrador & Distribuidora
+                  {locale === "es"
+                    ? "Mariscos Quiroa — Mostrador & Distribuidora"
+                    : "Mariscos Quiroa — Counter & Distribution"}
                 </p>
                 <p className="text-xs text-muted-foreground mt-0.5 truncate">
                   {contact.address.street}, {contact.address.city}
