@@ -6,20 +6,23 @@ import { Menu, X, Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useSiteConfig } from "@/hooks/use-site-config";
-
-const navLinks = [
-  { href: "#productos", label: "Productos" },
-  { href: "#mayoreo-menudeo", label: "Mayoreo & Menudeo" },
-  { href: "#nosotros", label: "Nosotros" },
-  { href: "#cobertura", label: "Cobertura" },
-  { href: "#ecosistema", label: "Ecosistema" },
-  { href: "#ubicacion", label: "Ubicación" },
-];
+import { useI18n } from "@/i18n/I18nProvider";
+import { LanguageSwitcher } from "@/components/site/LanguageSwitcher";
 
 export function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
   const { data: siteConfig } = useSiteConfig();
+  const { t } = useI18n();
+
+  const navLinks = [
+    { href: "#productos", label: t.nav.products },
+    { href: "#mayoreo-menudeo", label: t.nav.mayoreoMenudeo },
+    { href: "#nosotros", label: t.nav.about },
+    { href: "#cobertura", label: t.nav.coverage },
+    { href: "#ecosistema", label: t.nav.ecosystem },
+    { href: "#ubicacion", label: t.nav.location },
+  ];
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 24);
@@ -67,7 +70,7 @@ export function Navbar() {
                   scrolled ? "text-amber-brand-700" : "text-amber-brand-200"
                 )}
               >
-                El sabor del Pacífico en cada pedido
+                {t.hero.tagline}
               </span>
             </div>
           </Link>
@@ -92,6 +95,7 @@ export function Navbar() {
 
           {/* CTAs */}
           <div className="hidden lg:flex items-center gap-2">
+            <LanguageSwitcher scrolled={scrolled} />
             <a
               href={`tel:${siteConfig.contact.phone}`}
               className={cn(
@@ -106,22 +110,25 @@ export function Navbar() {
             </a>
             <Button asChild size="sm" className="bg-amber-brand-500 hover:bg-amber-brand-600 text-white shadow-md">
               <a href={waLink} target="_blank" rel="noopener noreferrer">
-                Cotizar por WhatsApp
+                {t.nav.quote}
               </a>
             </Button>
           </div>
 
           {/* Mobile toggle */}
-          <button
-            onClick={() => setOpen(!open)}
-            className={cn(
-              "lg:hidden inline-flex h-10 w-10 items-center justify-center rounded-lg transition-colors",
-              scrolled ? "text-foreground hover:bg-muted" : "text-white hover:bg-white/10"
-            )}
-            aria-label="Abrir menú"
-          >
-            {open ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-          </button>
+          <div className="lg:hidden flex items-center gap-2">
+            <LanguageSwitcher scrolled={scrolled} />
+            <button
+              onClick={() => setOpen(!open)}
+              className={cn(
+                "inline-flex h-10 w-10 items-center justify-center rounded-lg transition-colors",
+                scrolled ? "text-foreground hover:bg-muted" : "text-white hover:bg-white/10"
+              )}
+              aria-label={open ? t.chat.closeChat : t.chat.openChat}
+            >
+              {open ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -149,7 +156,7 @@ export function Navbar() {
               </a>
               <Button asChild className="bg-amber-brand-500 hover:bg-amber-brand-600 text-white">
                 <a href={waLink} target="_blank" rel="noopener noreferrer" onClick={() => setOpen(false)}>
-                  Cotizar por WhatsApp
+                  {t.nav.quote}
                 </a>
               </Button>
             </div>

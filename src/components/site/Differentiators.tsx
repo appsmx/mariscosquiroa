@@ -1,7 +1,7 @@
 "use client";
 
 import { Waves, ShieldCheck, Truck, Handshake } from "lucide-react";
-import { differentiators } from "@/lib/site-data";
+import { useI18n } from "@/i18n/I18nProvider";
 
 const iconMap = {
   Waves,
@@ -11,6 +11,9 @@ const iconMap = {
 };
 
 export function Differentiators() {
+  const { t } = useI18n();
+  const items = t.differentiators.items;
+
   return (
     <section className="relative py-16 sm:py-20 bg-ocean-950 text-white overflow-hidden">
       {/* Decoración */}
@@ -20,9 +23,19 @@ export function Differentiators() {
       </div>
 
       <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="text-center mb-12 sm:mb-14">
+          <h2 className="font-display text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight">
+            {t.differentiators.title}
+          </h2>
+          <p className="mt-4 text-base sm:text-lg text-white/70 max-w-2xl mx-auto">
+            {t.differentiators.subtitle}
+          </p>
+        </div>
+
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8">
-          {differentiators.map((d) => {
-            const Icon = iconMap[d.icon as keyof typeof iconMap];
+          {items.map((d, idx) => {
+            const icons = [Waves, ShieldCheck, Truck, Handshake];
+            const Icon = icons[idx] || Waves;
             return (
               <div
                 key={d.title}

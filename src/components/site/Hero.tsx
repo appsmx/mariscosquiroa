@@ -3,14 +3,24 @@
 import { ArrowRight, MessageCircle, Fish } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useSiteConfig } from "@/hooks/use-site-config";
+import { useI18n } from "@/i18n/I18nProvider";
 
 export function Hero() {
   const { data: siteConfig } = useSiteConfig();
+  const { t } = useI18n();
   if (!siteConfig) return null;
 
   const waLink = `https://wa.me/${siteConfig.contact.whatsapp}?text=${encodeURIComponent(
     siteConfig.contact.whatsappMessage
   )}`;
+
+  // Mapeo de etiquetas de stats por orden (los stats vienen del backend en español)
+  const statLabels = [
+    t.hero.stat1Label,
+    t.hero.stat2Label,
+    t.hero.stat3Label,
+    t.hero.stat4Label,
+  ];
 
   return (
     <section id="inicio" className="relative min-h-[100svh] flex items-center overflow-hidden">
@@ -39,7 +49,7 @@ export function Hero() {
           {/* Badge */}
           <div className="inline-flex items-center gap-2 rounded-full bg-white/10 backdrop-blur-md border border-white/20 px-4 py-1.5 text-xs sm:text-sm font-medium text-white mb-6 animate-fade-up">
             <span className="inline-flex h-2 w-2 rounded-full bg-amber-brand-400 animate-pulse" />
-            Frescura diaria del Pacífico mexicano · Playas de Rosarito, Baja California
+            {t.hero.badge}
           </div>
 
           {/* Título */}
@@ -47,7 +57,7 @@ export function Hero() {
             Mariscos Quiroa
           </h1>
           <p className="mt-4 font-display text-xl sm:text-2xl lg:text-3xl font-medium text-amber-brand-200 italic animate-fade-up [animation-delay:0.2s]">
-            {siteConfig.brand.tagline}
+            {t.hero.tagline}
           </p>
 
           {/* Subtítulo */}
@@ -64,7 +74,7 @@ export function Hero() {
             >
               <a href={waLink} target="_blank" rel="noopener noreferrer">
                 <MessageCircle className="h-5 w-5" />
-                Cotizar ahora
+                {t.hero.ctaSecondary}
               </a>
             </Button>
             <Button
@@ -74,7 +84,7 @@ export function Hero() {
               className="bg-white/10 backdrop-blur-md border-white/30 text-white hover:bg-white/20 hover:text-white hover:border-white/50 text-base h-12 px-6"
             >
               <a href="#productos">
-                Ver catálogo
+                {t.hero.ctaPrimary}
                 <ArrowRight className="h-5 w-5" />
               </a>
             </Button>
@@ -82,13 +92,13 @@ export function Hero() {
 
           {/* Stats */}
           <dl className="mt-12 sm:mt-16 grid grid-cols-2 sm:grid-cols-4 gap-x-6 gap-y-5 max-w-2xl animate-fade-up [animation-delay:0.5s]">
-            {siteConfig.stats.map((s) => (
+            {siteConfig.stats.map((s, idx) => (
               <div key={s.label} className="border-l-2 border-amber-brand-400/60 pl-4">
                 <dt className="font-display text-3xl sm:text-4xl font-bold text-white leading-none">
                   {s.value}
                 </dt>
                 <dd className="mt-1.5 text-xs sm:text-sm text-white/70 leading-tight">
-                  {s.label}
+                  {statLabels[idx] || s.label}
                 </dd>
               </div>
             ))}

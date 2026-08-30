@@ -4,6 +4,9 @@ import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 import OrganizationSchema from "@/components/seo/OrganizationSchema";
 import FaqSchema from "@/components/seo/FaqSchema";
+import { I18nProvider } from "@/i18n/I18nProvider";
+import { getLocaleFromRequest } from "@/i18n/server";
+import { defaultLocale } from "@/i18n/dictionaries";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -75,21 +78,27 @@ export const viewport: Viewport = {
   maximumScale: 5,
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const locale = await getLocaleFromRequest();
   return (
-    <html lang="es" suppressHydrationWarning data-scroll-behavior="smooth">
+    <html lang={locale} suppressHydrationWarning data-scroll-behavior="smooth">
       <body
         className={`${geistSans.variable} ${playfair.variable} antialiased bg-background text-foreground`}
       >
-        <OrganizationSchema />
-        <FaqSchema />
-        {children}
-        <Toaster />
+        <I18nProvider initialLocale={locale}>
+          <OrganizationSchema />
+          <FaqSchema />
+          {children}
+          <Toaster />
+        </I18nProvider>
       </body>
     </html>
   );
 }
+
+// Re-export para uso en otros módulos
+export { defaultLocale };

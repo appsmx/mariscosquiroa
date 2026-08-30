@@ -2,40 +2,48 @@
 
 import Link from "next/link";
 import { Phone, Mail, MapPin, Facebook, Instagram, MessageCircle } from "lucide-react";
-import { siteConfig as fallbackConfig } from "@/lib/site-data";
 import { useSiteConfig } from "@/hooks/use-site-config";
+import { useI18n } from "@/i18n/I18nProvider";
+import { LanguageSwitcher } from "@/components/site/LanguageSwitcher";
 import { LoganSeal } from "@/components/site/LoganSeal";
-
-const navColumns = [
-  {
-    title: "Productos",
-    links: [
-      { label: "Camarón", href: "#productos" },
-      { label: "Pulpo", href: "#productos" },
-      { label: "Callo de hacha", href: "#productos" },
-      { label: "Ostiones", href: "#productos" },
-      { label: "Pescados frescos", href: "#productos" },
-    ],
-  },
-  {
-    title: "Empresa",
-    links: [
-      { label: "Nosotros", href: "#nosotros" },
-      { label: "Mayoreo & Menudeo", href: "#mayoreo-menudeo" },
-      { label: "Cobertura", href: "#cobertura" },
-      { label: "Ecosistema Quiroa", href: "#ecosistema" },
-      { label: "Ubicación", href: "#ubicacion" },
-    ],
-  },
-];
 
 export function Footer() {
   const { data: siteConfig } = useSiteConfig();
+  const { t, locale } = useI18n();
   if (!siteConfig) return null;
   const waLink = `https://wa.me/${siteConfig.contact.whatsapp}?text=${encodeURIComponent(
     siteConfig.contact.whatsappMessage
   )}`;
   const { contact, social } = siteConfig;
+
+  const navColumns = [
+    {
+      title: t.footer.colProductsTitle,
+      links: [
+        { label: locale === "es" ? "Camarón" : "Shrimp", href: "#productos" },
+        { label: locale === "es" ? "Pulpo" : "Octopus", href: "#productos" },
+        { label: locale === "es" ? "Callo de hacha" : "Scallop", href: "#productos" },
+        { label: locale === "es" ? "Ostiones" : "Oysters", href: "#productos" },
+        { label: locale === "es" ? "Pescados frescos" : "Fresh fish", href: "#productos" },
+      ],
+    },
+    {
+      title: t.footer.colCompanyTitle,
+      links: [
+        { label: t.nav.about, href: "#nosotros" },
+        { label: t.nav.mayoreoMenudeo, href: "#mayoreo-menudeo" },
+        { label: t.nav.coverage, href: "#cobertura" },
+        { label: locale === "es" ? "Ecosistema Quiroa" : "Quiroa Ecosystem", href: "#ecosistema" },
+        { label: t.nav.location, href: "#ubicacion" },
+      ],
+    },
+  ];
+
+  const ctaTitle = locale === "es" ? "¿Listo para llevar el mar a tu cocina?" : "Ready to bring the sea to your kitchen?";
+  const ctaSubtitle = locale === "es" ? "Cotiza en segundos. Respuesta directa del equipo, sin esperas." : "Get a quote in seconds. Direct response from the team, no waiting.";
+  const callLabel = locale === "es" ? "Llamar" : "Call";
+  const bottomBar = locale === "es" ? "Rosarito, Baja California · México" : "Rosarito, Baja California · Mexico";
+  const bottomMade = locale === "es" ? "Hecho con orgullo bajacaliforniano" : "Made with Baja California pride";
 
   return (
     <footer className="bg-ocean-950 text-white">
@@ -45,10 +53,10 @@ export function Footer() {
           <div className="flex flex-col md:flex-row items-center justify-between gap-6">
             <div className="text-center md:text-left">
               <h3 className="font-display text-2xl sm:text-3xl font-bold text-white">
-                ¿Listo para llevar el mar a tu cocina?
+                {ctaTitle}
               </h3>
               <p className="mt-2 text-white/70">
-                Cotiza en segundos. Respuesta directa del equipo, sin esperas.
+                {ctaSubtitle}
               </p>
             </div>
             <div className="flex flex-col sm:flex-row gap-3 shrink-0">
@@ -59,14 +67,14 @@ export function Footer() {
                 className="inline-flex items-center justify-center gap-2 rounded-xl bg-amber-brand-500 hover:bg-amber-brand-600 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-amber-brand-900/30 transition-colors"
               >
                 <MessageCircle className="h-4 w-4" />
-                WhatsApp
+                {t.footer.whatsappBtn}
               </a>
               <a
                 href={`tel:${contact.phone}`}
                 className="inline-flex items-center justify-center gap-2 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 px-6 py-3 text-sm font-semibold text-white transition-colors"
               >
                 <Phone className="h-4 w-4" />
-                Llamar
+                {callLabel}
               </a>
             </div>
           </div>
@@ -89,15 +97,13 @@ export function Footer() {
                   Mariscos Quiroa
                 </p>
                 <p className="text-xs text-amber-brand-200 uppercase tracking-[0.18em]">
-                  El sabor del Pacífico en cada pedido
+                  {t.hero.tagline}
                 </p>
               </div>
             </div>
 
             <p className="mt-5 text-sm text-white/70 leading-relaxed max-w-md">
-              Distribuidora de pescados y mariscos frescos con más de 17 años abasteciendo
-              a restaurantes, pescaderías y hogares de Baja California. Frescura, trazabilidad y
-              precio justo en cada entrega.
+              {t.footer.tagline}
             </p>
 
             <div className="mt-6 space-y-2 text-sm">
@@ -141,10 +147,10 @@ export function Footer() {
             </div>
           ))}
 
-          {/* Redes */}
+          {/* Redes + idioma */}
           <div>
             <h4 className="font-display text-sm font-bold uppercase tracking-wide text-white">
-              Síguenos
+              {t.footer.follow}
             </h4>
             <div className="mt-4 flex flex-col gap-2.5">
               <a
@@ -181,6 +187,9 @@ export function Footer() {
                 WhatsApp
               </a>
             </div>
+            <div className="mt-5">
+              <LanguageSwitcher scrolled />
+            </div>
           </div>
         </div>
       </div>
@@ -189,16 +198,16 @@ export function Footer() {
       <div className="border-t border-white/10">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-5 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-white/50">
           <p>
-            © {new Date().getFullYear()} Mariscos Quiroa. Todos los derechos reservados.
+            © {new Date().getFullYear()} Mariscos Quiroa. {t.footer.rights}
           </p>
 
           {/* Sello Logan */}
           <LoganSeal variant="dark" />
 
           <div className="flex items-center gap-4">
-            <span>Rosarito, Baja California · México</span>
+            <span>{bottomBar}</span>
             <span className="hidden sm:inline">·</span>
-            <span>Hecho con orgullo bajacaliforniano</span>
+            <span>{bottomMade}</span>
           </div>
         </div>
       </div>
