@@ -4,12 +4,14 @@ import { useEffect, useState } from "react";
 import { MessageCircle, X } from "lucide-react";
 import { siteConfig as fallbackConfig } from "@/lib/site-data";
 import { useSiteConfig } from "@/hooks/use-site-config";
+import { useI18n } from "@/i18n/I18nProvider";
 import { cn } from "@/lib/utils";
 
 export function WhatsAppFloat() {
   const [visible, setVisible] = useState(false);
   const [open, setOpen] = useState(false);
   const { data: siteConfig } = useSiteConfig();
+  const { t, locale } = useI18n();
   const config = siteConfig || fallbackConfig;
 
   useEffect(() => {
@@ -38,21 +40,20 @@ export function WhatsAppFloat() {
                 <p className="text-sm font-semibold text-foreground">Mariscos Quiroa</p>
                 <p className="text-[10px] text-emerald-600 flex items-center gap-1">
                   <span className="inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                  En línea ahora
+                  {locale === "es" ? "En línea ahora" : "Online now"}
                 </p>
               </div>
             </div>
             <button
               onClick={() => setOpen(false)}
               className="text-muted-foreground hover:text-foreground"
-              aria-label="Cerrar"
+              aria-label={locale === "es" ? "Cerrar" : "Close"}
             >
               <X className="h-4 w-4" />
             </button>
           </div>
           <p className="mt-3 text-sm text-muted-foreground leading-relaxed">
-            ¡Hola! Estamos para ayudarte con tu pedido de mariscos frescos. Toca abajo para
-            escribirnos directamente.
+            {t.whatsapp.floatCta}
           </p>
           <a
             href={waLink}
@@ -61,7 +62,7 @@ export function WhatsAppFloat() {
             className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white transition-colors"
           >
             <MessageCircle className="h-4 w-4" />
-            Abrir WhatsApp
+            {locale === "es" ? "Abrir WhatsApp" : "Open WhatsApp"}
           </a>
         </div>
       )}
@@ -73,7 +74,7 @@ export function WhatsAppFloat() {
           open && "rotate-90"
         )}
         style={{ right: 0 }}
-        aria-label="Abrir WhatsApp"
+        aria-label={t.whatsapp.label}
       >
         {!open && (
           <span className="absolute inset-0 rounded-full bg-emerald-600 animate-ping opacity-30" />
