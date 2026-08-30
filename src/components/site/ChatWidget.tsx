@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { useCart } from "@/hooks/use-cart";
 import { useSiteConfig } from "@/hooks/use-site-config";
 import { siteConfig as fallbackConfig } from "@/lib/site-data";
+import { useI18n } from "@/i18n/I18nProvider";
 
 type Message = {
   role: "user" | "assistant";
@@ -27,11 +28,18 @@ type ChatAction = {
   productId?: string;
 };
 
-const SUGGESTIONS = [
+const SUGGESTIONS_ES = [
   "¿Qué productos tienen hoy?",
   "¿Cuál es el precio del camarón?",
   "¿Hacen entregas a domicilio?",
   "Necesito 10 kg de pulpo para un evento",
+];
+
+const SUGGESTIONS_EN = [
+  "What products do you have today?",
+  "What's the price of shrimp?",
+  "Do you offer home delivery?",
+  "I need 10 kg of octopus for an event",
 ];
 
 export function ChatWidget() {
@@ -45,7 +53,9 @@ export function ChatWidget() {
   const inputRef = useRef<HTMLInputElement>(null);
   const { openCart } = useCart();
   const { data: siteConfig } = useSiteConfig();
+  const { t, locale } = useI18n();
   const config = siteConfig || fallbackConfig;
+  const SUGGESTIONS = locale === "es" ? SUGGESTIONS_ES : SUGGESTIONS_EN;
 
   const scrollToBottom = useCallback(() => {
     if (scrollRef.current) {
@@ -63,7 +73,7 @@ export function ChatWidget() {
         setMessages([
           {
             role: "assistant",
-            content: `¡Hola! 🦐 Soy el asistente virtual de ${config.brand.name}. Estoy para ayudarte con consultas sobre productos, precios, disponibilidad y entregas. ¿Qué necesitas saber?`,
+            content: t.chat.greeting,
             timestamp: Date.now(),
           },
         ]);
@@ -71,7 +81,7 @@ export function ChatWidget() {
       // Focus en input después de abrir
       setTimeout(() => inputRef.current?.focus(), 300);
     }
-  }, [isOpen, scrollToBottom, hasGreeted, config.brand.name]);
+  }, [isOpen, scrollToBottom, hasGreeted, t]);
 
   useEffect(() => {
     scrollToBottom();
@@ -117,8 +127,7 @@ export function ChatWidget() {
         ...newMessages,
         {
           role: "assistant",
-          content:
-            "Disculpa, tuve un problema de conexión. Intenta de nuevo o escríbenos por WhatsApp.",
+          content: t.chat.error,
           timestamp: Date.now(),
         },
       ]);
@@ -142,7 +151,10 @@ export function ChatWidget() {
       setIsOpen(false);
     } else if (action.type === "open_whatsapp") {
       const waLink = `https://wa.me/${config.contact.whatsapp}?text=${encodeURIComponent(
-        action.message || "Hola Mariscos Quiroa, vengo desde el chat de la web."
+        action.message ||
+          (locale === "es"
+            ? "Hola Mariscos Quiroa, vengo desde el chat de la web."
+            : "Hi Mariscos Quiroa, I'm coming from the website chat.")
       )}`;
       window.open(waLink, "_blank");
     }
@@ -159,7 +171,7 @@ export function ChatWidget() {
             ? "bg-foreground text-background rotate-90"
             : "bg-gradient-to-br from-ocean-500 to-ocean-700 text-white shadow-ocean-900/30"
         )}
-        aria-label={isOpen ? "Cerrar chat" : "Abrir chat"}
+        aria-label={isOpen ? t.chat.closeChat : t.chat.openChat}
       >
         {!isOpen && (
           <span className="absolute inset-0 rounded-full bg-ocean-500 animate-ping opacity-20" />
@@ -195,16 +207,16 @@ export function ChatWidget() {
               </span>
             </div>
             <div className="flex-1 min-w-0">
-              <p className="font-semibold text-sm leading-tight">Asistente Quiroa</p>
+              <p className="font-semibold text-sm leading-tight">{t.chat.title}</p>
               <p className="text-[10px] text-white/80 flex items-center gap-1 mt-0.5">
                 <span className="inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                En línea · responde en segundos
+                {locale === "es" ? "En línea · responde en segundos" : "Online · replies in seconds"}
               </p>
             </div>
             <button
               onClick={() => setIsOpen(false)}
               className="text-white/70 hover:text-white"
-              aria-label="Cerrar"
+              aria-label={locale === "es" ? "Cerrar" : "Close"}
             >
               <X className="h-5 w-5" />
             </button>
@@ -246,7 +258,7 @@ export function ChatWidget() {
                             className="inline-flex items-center gap-1.5 rounded-full bg-ocean-50 border border-ocean-200 px-3 py-1.5 text-xs font-semibold text-ocean-700 hover:bg-ocean-100 transition-colors"
                           >
                             <ShoppingCart className="h-3 w-3" />
-                            Ver carrito
+                            {locale === "es" ? "Ver carrito" : "View cart"}
                           </button>
                         );
                       }
@@ -268,10 +280,13 @@ export function ChatWidget() {
                 )}
 
                 <span className="text-[10px] text-muted-foreground px-1">
-                  {new Date(m.timestamp).toLocaleTimeString("es-MX", {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
+                  {new Date(m.timestamp).toLocaleTimeString(
+                    locale === "es" ? "es-MX" : "en-US",
+                    {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    }
+                  )}
                 </span>
               </div>
             ))}
@@ -293,7 +308,7 @@ export function ChatWidget() {
             {messages.length <= 1 && !loading && (
               <div className="pt-2">
                 <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-2 px-1">
-                  Preguntas frecuentes
+                  {locale === "es" ? "Preguntas frecuentes" : "Frequent questions"}
                 </p>
                 <div className="flex flex-col gap-1.5">
                   {SUGGESTIONS.map((s) => (
@@ -317,7 +332,7 @@ export function ChatWidget() {
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="Escribe tu consulta..."
+              placeholder={t.chat.placeholder}
               disabled={loading}
               className="flex-1 h-10 rounded-full bg-muted px-4 text-sm focus:outline-none focus:ring-2 focus:ring-ocean-500/30 disabled:opacity-50"
               maxLength={500}
@@ -339,14 +354,16 @@ export function ChatWidget() {
           {/* Footer */}
           <div className="px-3 py-2 bg-muted/50 border-t border-border">
             <p className="text-[10px] text-center text-muted-foreground">
-              Asistente IA de Mariscos Quiroa · Para consultas complejas,{" "}
+              {locale === "es"
+                ? "Asistente IA de Mariscos Quiroa · Para consultas complejas,"
+                : "Mariscos Quiroa AI assistant · For complex queries,"}{" "}
               <a
                 href={`https://wa.me/${config.contact.whatsapp}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="font-semibold text-emerald-600 hover:underline inline-flex items-center gap-0.5"
               >
-                escríbenos por WhatsApp
+                {locale === "es" ? "escríbenos por WhatsApp" : "message us on WhatsApp"}
                 <ExternalLink className="h-2.5 w-2.5" />
               </a>
             </p>
