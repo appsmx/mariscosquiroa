@@ -59,10 +59,25 @@ async function callDeepSeek(
     }
 
     const data = await res.json();
-    return data?.choices?.[0]?.message?.content?.trim() || "";
+    return stripMarkdown(data?.choices?.[0]?.message?.content?.trim() || "");
   } finally {
     clearTimeout(timeout);
   }
+}
+
+/**
+ * Limpia formato markdown de la respuesta del modelo (red de seguridad por si
+ * el LLM ignora la instrucción del prompt). El widget muestra texto plano,
+ * así que los asteriscos/almohadillas se verían literales.
+ */
+function stripMarkdown(text: string): string {
+  return text
+    .replace(/\*\*(.+?)\*\*/g, "$1")   // **negrita** → negrita
+    .replace(/\*(.+?)\*/g, "$1")         // *cursiva* → cursiva
+    .replace(/__(.+?)__/g, "$1")         // __negrita__ → negrita
+    .replace(/^#{1,6}\s+/gm, "")          // ### títulos → sin almohadilla
+    .replace(/`{1,3}([^`]+)`{1,3}/g, "$1") // `código` → código
+    .trim();
 }
 
 /**
@@ -157,6 +172,7 @@ TONO Y ESTILO:
 - Conoces de mariscos: sabes la diferencia entre callo de hacha y almeja, sabes que el pulpo rojo es del Pacífico, sabes que el camarón U-15 es más grande que el 21/25.
 - Responde en español mexicano, en máximo 3-4 párrafos cortos. Si la consulta es simple, una respuesta breve alcanza.
 - Usa emojis con moderación (🐟, 🦐, 🐙) solo cuando sumen, no en cada mensaje.
+- ESCRIBE EN TEXTO PLANO. NUNCA uses formato markdown: nada de asteriscos para negritas (**texto**), nada de guiones bajos, nada de almohadillas (#). Si quieres resaltar algo, simplemente escríbelo con palabras. Para listas, usa un guion simple "-" o números "1." al inicio de línea, sin más formato.
 
 QUÉ PUEDES HACER:
 1. Responder consultas sobre productos: precio, disponibilidad, presentación, tamaño, modo de preparación recomendado.
