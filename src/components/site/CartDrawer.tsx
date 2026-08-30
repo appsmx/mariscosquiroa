@@ -31,6 +31,7 @@ import {
 import { useCart } from "@/hooks/use-cart";
 import { useSiteConfig } from "@/hooks/use-site-config";
 import { siteConfig as fallbackConfig } from "@/lib/site-data";
+import { useI18n } from "@/i18n/I18nProvider";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -49,6 +50,7 @@ export function CartDrawer() {
     getSubtotal,
   } = useCart();
   const { data: siteConfig } = useSiteConfig();
+  const { t, locale } = useI18n();
   const config = siteConfig || fallbackConfig;
 
   const [form, setForm] = useState({
@@ -91,11 +93,15 @@ export function CartDrawer() {
 
   const handleSubmit = async () => {
     if (!form.customerName || !form.customerPhone) {
-      toast.error("Completa tu nombre y teléfono para enviar la cotización");
+      toast.error(
+        locale === "es"
+          ? "Completa tu nombre y teléfono para enviar la cotización"
+          : "Please complete your name and phone to send the quote"
+      );
       return;
     }
     if (items.length === 0) {
-      toast.error("Tu carrito está vacío");
+      toast.error(t.cart.empty);
       return;
     }
 
@@ -133,7 +139,11 @@ export function CartDrawer() {
       });
       clear();
     } catch (e: any) {
-      toast.error("Error al enviar la cotización. Intenta por WhatsApp directo.");
+      toast.error(
+        locale === "es"
+          ? "Error al enviar la cotización. Intenta por WhatsApp directo."
+          : "Error sending the quote. Try direct WhatsApp."
+      );
     } finally {
       setSubmitting(false);
     }
@@ -160,9 +170,9 @@ export function CartDrawer() {
         <SheetHeader className="px-6 py-5 border-b border-border bg-ocean-50">
           <SheetTitle className="flex items-center gap-2 text-foreground">
             <ShoppingCart className="h-5 w-5 text-ocean-600" />
-            Tu cotización
+            {t.cart.title}
             <Badge variant="secondary" className="ml-auto capitalize">
-              {channel === "mayoreo" ? "Mayoreo" : "Menudeo"}
+              {channel === "mayoreo" ? t.catalog.mayoreo : t.catalog.menudeo}
             </Badge>
           </SheetTitle>
         </SheetHeader>
@@ -173,23 +183,26 @@ export function CartDrawer() {
             <div className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 mb-4">
               <CheckCircle2 className="h-9 w-9 text-emerald-600" />
             </div>
-            <h3 className="font-display text-2xl font-bold text-foreground">¡Cotización enviada!</h3>
+            <h3 className="font-display text-2xl font-bold text-foreground">
+              {locale === "es" ? "¡Cotización enviada!" : "Quote sent!"}
+            </h3>
             <p className="text-sm text-muted-foreground mt-2">
-              Tu código de seguimiento es:
+              {locale === "es" ? "Tu código de seguimiento es:" : "Your tracking code is:"}
             </p>
             <p className="font-mono text-lg font-bold text-ocean-700 mt-1">{success.code}</p>
             <p className="text-sm text-muted-foreground mt-4 max-w-xs">
-              Nosotros recibimos tu solicitud y te contactaremos en breve. Para acelerar
-              la respuesta, envía el detalle también por WhatsApp:
+              {locale === "es"
+                ? "Nosotros recibimos tu solicitud y te contactaremos en breve. Para acelerar la respuesta, envía el detalle también por WhatsApp:"
+                : "We received your request and will contact you shortly. To speed up the response, also send the details via WhatsApp:"}
             </p>
             <Button asChild className="mt-6 bg-emerald-600 hover:bg-emerald-700 text-white">
               <a href={success.waLink} target="_blank" rel="noopener noreferrer">
                 <MessageCircle className="h-4 w-4" />
-                Enviar por WhatsApp
+                {locale === "es" ? "Enviar por WhatsApp" : "Send on WhatsApp"}
               </a>
             </Button>
             <Button variant="ghost" onClick={handleClose} className="mt-2">
-              Cerrar
+              {locale === "es" ? "Cerrar" : "Close"}
             </Button>
           </div>
         ) : items.length === 0 ? (
@@ -199,14 +212,13 @@ export function CartDrawer() {
               <ShoppingCart className="h-8 w-8 text-muted-foreground" />
             </div>
             <h3 className="font-display text-lg font-semibold text-foreground">
-              Tu carrito está vacío
+              {t.cart.empty}
             </h3>
             <p className="text-sm text-muted-foreground mt-2 max-w-xs">
-              Explora el catálogo y agrega los productos que te interesan.
-              Vas a poder enviar todo junto en una sola cotización.
+              {t.cart.emptyDesc}
             </p>
             <Button onClick={handleClose} className="mt-6 bg-ocean-600 hover:bg-ocean-700">
-              Ver catálogo
+              {t.cart.continueShopping}
             </Button>
           </div>
         ) : (
@@ -231,7 +243,7 @@ export function CartDrawer() {
                       <button
                         onClick={() => remove(i)}
                         className="text-muted-foreground hover:text-rose-600"
-                        aria-label="Quitar"
+                        aria-label={t.cart.remove}
                       >
                         <Trash2 className="h-4 w-4" />
                       </button>
@@ -272,31 +284,35 @@ export function CartDrawer() {
 
               {/* Subtotal */}
               <div className="rounded-lg bg-ocean-50 border border-ocean-100 p-3 flex items-center justify-between">
-                <span className="text-sm font-medium text-ocean-700">Subtotal estimado</span>
+                <span className="text-sm font-medium text-ocean-700">{t.cart.subtotal}</span>
                 <span className="font-display text-xl font-bold text-foreground">
                   {mxn(subtotal)}
                 </span>
               </div>
               <p className="text-[11px] text-muted-foreground">
-                * Precio final sujeto a disponibilidad del día. Te confirmamos al contactarte.
+                {locale === "es"
+                  ? "* Precio final sujeto a disponibilidad del día. Te confirmamos al contactarte."
+                  : "* Final price subject to daily availability. We confirm when contacting you."}
               </p>
 
               {/* Formulario cliente */}
               <div className="pt-4 border-t border-border space-y-3">
-                <h4 className="font-semibold text-sm text-foreground">Tus datos</h4>
+                <h4 className="font-semibold text-sm text-foreground">
+                  {locale === "es" ? "Tus datos" : "Your details"}
+                </h4>
                 <div className="grid grid-cols-1 gap-3">
                   <div className="space-y-1.5">
-                    <Label className="text-xs">Nombre *</Label>
+                    <Label className="text-xs">{locale === "es" ? "Nombre *" : "Name *"}</Label>
                     <Input
                       value={form.customerName}
                       onChange={(e) => update("customerName", e.target.value)}
-                      placeholder="Tu nombre o del negocio"
+                      placeholder={locale === "es" ? "Tu nombre o del negocio" : "Your name or business"}
                       className="h-9"
                     />
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1.5">
-                      <Label className="text-xs">Teléfono *</Label>
+                      <Label className="text-xs">{locale === "es" ? "Teléfono *" : "Phone *"}</Label>
                       <Input
                         value={form.customerPhone}
                         onChange={(e) => update("customerPhone", e.target.value)}
@@ -305,7 +321,9 @@ export function CartDrawer() {
                       />
                     </div>
                     <div className="space-y-1.5">
-                      <Label className="text-xs">Email (opcional)</Label>
+                      <Label className="text-xs">
+                        {locale === "es" ? "Email (opcional)" : "Email (optional)"}
+                      </Label>
                       <Input
                         type="email"
                         value={form.customerEmail}
@@ -316,29 +334,31 @@ export function CartDrawer() {
                     </div>
                   </div>
                   <div className="space-y-1.5">
-                    <Label className="text-xs">Dirección de entrega (opcional)</Label>
+                    <Label className="text-xs">
+                      {locale === "es" ? "Dirección de entrega (opcional)" : "Delivery address (optional)"}
+                    </Label>
                     <Input
                       value={form.deliveryAddress}
                       onChange={(e) => update("deliveryAddress", e.target.value)}
-                      placeholder="Calle, número, colonia"
+                      placeholder={locale === "es" ? "Calle, número, colonia" : "Street, number, neighborhood"}
                       className="h-9"
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <Label className="text-xs">Ciudad (opcional)</Label>
+                    <Label className="text-xs">{locale === "es" ? "Ciudad (opcional)" : "City (optional)"}</Label>
                     <Input
                       value={form.deliveryCity}
                       onChange={(e) => update("deliveryCity", e.target.value)}
-                      placeholder="Rosarito, Tijuana..."
+                      placeholder={locale === "es" ? "Rosarito, Tijuana..." : "Rosarito, Tijuana..."}
                       className="h-9"
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <Label className="text-xs">Notas (opcional)</Label>
+                    <Label className="text-xs">{locale === "es" ? "Notas (opcional)" : "Notes (optional)"}</Label>
                     <Textarea
                       value={form.notes}
                       onChange={(e) => update("notes", e.target.value)}
-                      placeholder="Algún detalle del pedido, horario preferido..."
+                      placeholder={locale === "es" ? "Algún detalle del pedido, horario preferido..." : "Any order detail, preferred time..."}
                       rows={2}
                       className="text-sm"
                     />
@@ -358,12 +378,12 @@ export function CartDrawer() {
                   {submitting ? (
                     <>
                       <Loader2 className="h-4 w-4 animate-spin" />
-                      Enviando...
+                      {locale === "es" ? "Enviando..." : "Sending..."}
                     </>
                   ) : (
                     <>
                       <CheckCircle2 className="h-4 w-4" />
-                      Enviar cotización ({mxn(subtotal)})
+                      {t.cart.sendQuote} ({mxn(subtotal)})
                     </>
                   )}
                 </Button>
@@ -374,7 +394,7 @@ export function CartDrawer() {
                   className="w-full text-muted-foreground"
                 >
                   <X className="h-3.5 w-3.5" />
-                  Vaciar carrito
+                  {t.cart.clear}
                 </Button>
               </div>
             </SheetFooter>
