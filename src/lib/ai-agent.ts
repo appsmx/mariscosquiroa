@@ -1,4 +1,3 @@
-import ZAI from "z-ai-web-dev-sdk";
 import { db } from "@/lib/db";
 
 /**
@@ -10,16 +9,60 @@ import { db } from "@/lib/db";
  *  - Puede agregar productos al carrito del usuario (devuelve acciones)
  *  - Escala a humano cuando no puede resolver
  *
- * Usa el SDK de Z.ai (GLM) que ya viene integrado en el proyecto.
+ * Usa DeepSeek vía HTTP directo (compatible OpenAI). Independiente del proveedor:
+ * si falta la API key o falla la llamada, cae a un fallback inteligente basado
+ * en el catálogo real (nunca deja al cliente sin respuesta).
  */
 
-let zaiInstance: any = null;
+const DEEPSEEK_BASE_URL = process.env.DEEPSEEK_BASE_URL || "https://api.deepseek.com";
+const DEEPSEEK_MODEL = process.env.DEEPSEEK_MODEL || "deepseek-v4-flash";
 
-async function getZAI() {
-  if (!zaiInstance) {
-    zaiInstance = await ZAI.create();
+type LLMMessage = { role: "system" | "user" | "assistant"; content: string };
+
+/**
+ * Llama a DeepSeek (Chat Completions, compatible con OpenAI) vía fetch.
+ * Lanza error si la key no está configurada o la respuesta no es OK,
+ * para que el caller pueda caer al fallback.
+ */
+async function callDeepSeek(
+  messages: LLMMessage[],
+  opts: { temperature?: number; maxTokens?: number } = {}
+): Promise<string> {
+  const apiKey = process.env.DEEPSEEK_API_KEY;
+  if (!apiKey) {
+    throw new Error("DEEPSEEK_API_KEY no configurada");
   }
-  return zaiInstance;
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 25_000);
+
+  try {
+    const res = await fetch(`${DEEPSEEK_BASE_URL}/chat/completions`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: DEEPSEEK_MODEL,
+        messages,
+        temperature: opts.temperature ?? 0.7,
+        max_tokens: opts.maxTokens ?? 600,
+        stream: false,
+      }),
+      signal: controller.signal,
+    });
+
+    if (!res.ok) {
+      const errText = await res.text().catch(() => "");
+      throw new Error(`DeepSeek HTTP ${res.status}: ${errText.slice(0, 200)}`);
+    }
+
+    const data = await res.json();
+    return data?.choices?.[0]?.message?.content?.trim() || "";
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 /**
@@ -170,30 +213,22 @@ export async function processCustomerMessage(
   history: Array<{ role: "user" | "assistant"; content: string }> = []
 ): Promise<ChatResponse> {
   try {
-    // Intentar primero con el SDK de Z.ai (GLM)
+    // Intentar primero con DeepSeek (HTTP directo, compatible OpenAI)
     let content = "";
     try {
-      const zai = await getZAI();
       const businessContext = await buildBusinessContext();
       const systemPrompt = AGENT_SYSTEM_PROMPT.replace("{BUSINESS_CONTEXT}", businessContext);
 
-      const messages = [
-        { role: "assistant", content: systemPrompt },
-        ...history.slice(-10),
+      const messages: LLMMessage[] = [
+        { role: "system", content: systemPrompt },
+        ...history.slice(-10).map((m) => ({ role: m.role, content: m.content } as LLMMessage)),
         { role: "user", content: message },
       ];
 
-      const completion = await zai.chat.completions.create({
-        messages,
-        thinking: { type: "disabled" },
-        temperature: 0.7,
-        max_tokens: 600,
-      });
-
-      content = completion.choices[0]?.message?.content?.trim() || "";
-    } catch (zaiError) {
-      // Si Z.ai falla (ej. en Vercel sin credenciales), usar fallback inteligente
-      console.log("Z.ai SDK no disponible, usando fallback:", zaiError?.message || "unknown");
+      content = await callDeepSeek(messages, { temperature: 0.7, maxTokens: 600 });
+    } catch (llmError: any) {
+      // Si DeepSeek falla (sin key, sin crédito, timeout), usar fallback inteligente
+      console.log("DeepSeek no disponible, usando fallback:", llmError?.message || "unknown");
       content = await generateFallbackResponse(message);
     }
 
@@ -357,8 +392,6 @@ export async function generateAdminSummary(context: {
   lowStockHint?: string[];
 }): Promise<string> {
   try {
-    const zai = await getZAI();
-
     const prompt = `Eres el asistente de gestión de Mariscos Quiroa. El dueño del negocio abrió el panel y quiere un resumen rápido del estado actual.
 
 DATOS DE HOY:
@@ -378,17 +411,15 @@ Importante: usa español mexicano. Nunca uses voseo (no digas "tenés", "podés"
 
 No uses emojis. No uses markdown. Texto plano, conversacional.`;
 
-    const completion = await zai.chat.completions.create({
-      messages: [
-        { role: "assistant", content: "Eres un asistente de gestión de negocios conciso y accionable. Hablas español mexicano (sin voseo)." },
+    const content = await callDeepSeek(
+      [
+        { role: "system", content: "Eres un asistente de gestión de negocios conciso y accionable. Hablas español mexicano (sin voseo)." },
         { role: "user", content: prompt },
       ],
-      thinking: { type: "disabled" },
-      temperature: 0.5,
-      max_tokens: 300,
-    });
+      { temperature: 0.5, maxTokens: 300 }
+    );
 
-    return completion.choices[0]?.message?.content?.trim() || generateFallbackAdminSummary(context);
+    return content || generateFallbackAdminSummary(context);
   } catch (e: any) {
     console.error("Error en resumen admin:", e);
     return generateFallbackAdminSummary(context);
