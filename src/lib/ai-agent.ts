@@ -14,37 +14,141 @@ import { db } from "@/lib/db";
  * en el catálogo real (nunca deja al cliente sin respuesta).
  */
 
-const DEEPSEEK_BASE_URL = process.env.DEEPSEEK_BASE_URL || "https://api.deepseek.com";
-const DEEPSEEK_MODEL = process.env.DEEPSEEK_MODEL || "deepseek-v4-flash";
-
 const GEMINI_BASE_URL = process.env.GEMINI_BASE_URL || "https://generativelanguage.googleapis.com/v1beta";
 const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
 
 type LLMMessage = { role: "system" | "user" | "assistant"; content: string };
 
 /**
- * Orquestador de proveedores LLM con cascada:
- *   1. Gemini (tier gratuito de Google AI Studio) — se usa primero para no gastar.
- *   2. DeepSeek (de pago, económico) — respaldo si Gemini falla o agota su cuota.
- *   3. (el caller cae al fallback del catálogo si ambos fallan)
- * Devuelve texto ya limpio de markdown. Lanza error solo si TODOS los proveedores fallan.
+ * Proveedores OpenAI-compatibles (mismo formato /chat/completions).
+ * Se activan solo si su API key está configurada. El orden de la cascada
+ * se define en LLM_CASCADE más abajo.
+ */
+const OPENAI_COMPATIBLE_PROVIDERS: Record<
+  string,
+  { envKey: string; baseUrl: string; model: string; label: string }
+> = {
+  deepseek: {
+    envKey: "DEEPSEEK_API_KEY",
+    baseUrl: process.env.DEEPSEEK_BASE_URL || "https://api.deepseek.com",
+    model: process.env.DEEPSEEK_MODEL || "deepseek-v4-flash",
+    label: "DeepSeek",
+  },
+  openai: {
+    envKey: "OPENAI_API_KEY",
+    baseUrl: process.env.OPENAI_BASE_URL || "https://api.openai.com/v1",
+    model: process.env.OPENAI_MODEL || "gpt-4o-mini",
+    label: "ChatGPT",
+  },
+  glm: {
+    envKey: "GLM_API_KEY",
+    baseUrl: process.env.GLM_BASE_URL || "https://api.z.ai/api/paas/v4",
+    model: process.env.GLM_MODEL || "glm-4-flash",
+    label: "GLM",
+  },
+  groq: {
+    envKey: "GROQ_API_KEY",
+    baseUrl: process.env.GROQ_BASE_URL || "https://api.groq.com/openai/v1",
+    model: process.env.GROQ_MODEL || "llama-3.3-70b-versatile",
+    label: "Groq",
+  },
+  openrouter: {
+    envKey: "OPENROUTER_API_KEY",
+    baseUrl: process.env.OPENROUTER_BASE_URL || "https://openrouter.ai/api/v1",
+    model: process.env.OPENROUTER_MODEL || "meta-llama/llama-3.3-70b-instruct:free",
+    label: "OpenRouter",
+  },
+  mistral: {
+    envKey: "MISTRAL_API_KEY",
+    baseUrl: process.env.MISTRAL_BASE_URL || "https://api.mistral.ai/v1",
+    model: process.env.MISTRAL_MODEL || "mistral-small-latest",
+    label: "Mistral",
+  },
+};
+
+/**
+ * Orden de la cascada de proveedores. Cada uno se intenta solo si su API key
+ * está configurada; si falla o no está, pasa al siguiente. Al final, el caller
+ * cae al fallback del catálogo.
+ *
+ * Orden pedido: Gemini (gratis) → DeepSeek → ChatGPT → GLM → Groq → OpenRouter → Mistral
+ * (Groq, OpenRouter y Mistral también tienen tier gratuito — se activan al poner su key.)
+ */
+const LLM_CASCADE = ["gemini", "deepseek", "openai", "glm", "groq", "openrouter", "mistral"];
+
+/**
+ * Orquestador de proveedores LLM con cascada configurable.
+ * Devuelve texto ya limpio de markdown. Lanza error solo si TODOS fallan.
  */
 async function callLLM(
   messages: LLMMessage[],
   opts: { temperature?: number; maxTokens?: number } = {}
 ): Promise<string> {
-  // 1) Gemini primero (gratis)
-  if (process.env.GEMINI_API_KEY) {
+  let lastError: any = null;
+
+  for (const provider of LLM_CASCADE) {
     try {
-      const out = await callGemini(messages, opts);
-      if (out) return out;
+      if (provider === "gemini") {
+        if (!process.env.GEMINI_API_KEY) continue;
+        const out = await callGemini(messages, opts);
+        if (out) return out;
+      } else {
+        const cfg = OPENAI_COMPATIBLE_PROVIDERS[provider];
+        if (!cfg || !process.env[cfg.envKey]) continue;
+        const out = await callOpenAICompatible(cfg, messages, opts);
+        if (out) return out;
+      }
     } catch (e: any) {
-      console.log("Gemini no disponible, intentando DeepSeek:", e?.message || "unknown");
+      lastError = e;
+      console.log(`Proveedor '${provider}' no disponible, intentando siguiente:`, e?.message || "unknown");
     }
   }
 
-  // 2) DeepSeek como respaldo
-  return await callDeepSeek(messages, opts);
+  throw new Error(`Ningún proveedor LLM disponible. Último error: ${lastError?.message || "sin proveedores configurados"}`);
+}
+
+/**
+ * Llama a cualquier proveedor con API compatible con OpenAI (/chat/completions).
+ * DeepSeek, OpenAI (ChatGPT), GLM (Z.ai), Groq, OpenRouter y Mistral usan este formato.
+ */
+async function callOpenAICompatible(
+  cfg: { envKey: string; baseUrl: string; model: string; label: string },
+  messages: LLMMessage[],
+  opts: { temperature?: number; maxTokens?: number } = {}
+): Promise<string> {
+  const apiKey = process.env[cfg.envKey];
+  if (!apiKey) throw new Error(`${cfg.envKey} no configurada`);
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 25_000);
+
+  try {
+    const res = await fetch(`${cfg.baseUrl}/chat/completions`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: cfg.model,
+        messages,
+        temperature: opts.temperature ?? 0.7,
+        max_tokens: opts.maxTokens ?? 600,
+        stream: false,
+      }),
+      signal: controller.signal,
+    });
+
+    if (!res.ok) {
+      const errText = await res.text().catch(() => "");
+      throw new Error(`${cfg.label} HTTP ${res.status}: ${errText.slice(0, 200)}`);
+    }
+
+    const data = await res.json();
+    return stripMarkdown(data?.choices?.[0]?.message?.content?.trim() || "");
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 /**
@@ -101,51 +205,7 @@ async function callGemini(
   }
 }
 
-/**
- * Llama a DeepSeek (Chat Completions, compatible con OpenAI) vía fetch.
- * Lanza error si la key no está configurada o la respuesta no es OK,
- * para que el caller pueda caer al fallback.
- */
-async function callDeepSeek(
-  messages: LLMMessage[],
-  opts: { temperature?: number; maxTokens?: number } = {}
-): Promise<string> {
-  const apiKey = process.env.DEEPSEEK_API_KEY;
-  if (!apiKey) {
-    throw new Error("DEEPSEEK_API_KEY no configurada");
-  }
 
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 25_000);
-
-  try {
-    const res = await fetch(`${DEEPSEEK_BASE_URL}/chat/completions`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: DEEPSEEK_MODEL,
-        messages,
-        temperature: opts.temperature ?? 0.7,
-        max_tokens: opts.maxTokens ?? 600,
-        stream: false,
-      }),
-      signal: controller.signal,
-    });
-
-    if (!res.ok) {
-      const errText = await res.text().catch(() => "");
-      throw new Error(`DeepSeek HTTP ${res.status}: ${errText.slice(0, 200)}`);
-    }
-
-    const data = await res.json();
-    return stripMarkdown(data?.choices?.[0]?.message?.content?.trim() || "");
-  } finally {
-    clearTimeout(timeout);
-  }
-}
 
 /**
  * Limpia formato markdown de la respuesta del modelo (red de seguridad por si
