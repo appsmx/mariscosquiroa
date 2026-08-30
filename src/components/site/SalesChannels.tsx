@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { salesChannels, siteConfig as fallbackConfig } from "@/lib/site-data";
 import { useSiteConfig } from "@/hooks/use-site-config";
+import { useI18n } from "@/i18n/I18nProvider";
 import { cn } from "@/lib/utils";
 
 const iconMap = {
@@ -33,6 +34,7 @@ const colorMap: Record<string, { bg: string; border: string; text: string; accen
 
 export function SalesChannels() {
   const { data: siteConfig } = useSiteConfig();
+  const { t, locale } = useI18n();
   const config = siteConfig || fallbackConfig;
   const waLink = `https://wa.me/${config.contact.whatsapp}?text=${encodeURIComponent(
     config.contact.whatsappMessage
@@ -44,15 +46,13 @@ export function SalesChannels() {
         {/* Encabezado */}
         <div className="max-w-3xl mx-auto text-center">
           <span className="inline-flex items-center gap-2 rounded-full bg-amber-brand-50 border border-amber-brand-200 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-amber-brand-700">
-            Dos formas de comprar
+            {t.channels.badge}
           </span>
           <h2 className="mt-4 font-display text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight text-foreground">
-            Mayoreo y menudeo, misma frescura
+            {t.channels.title}
           </h2>
           <p className="mt-4 text-base sm:text-lg text-muted-foreground leading-relaxed">
-            Atendemos restaurantes, pescaderías y hoteles con volúmenes y precios especiales,
-            y también a familias que compran para el hogar en presentaciones prácticas.
-            Elegí el canal que mejor se ajuste a tu necesidad.
+            {t.channels.subtitle}
           </p>
         </div>
 
@@ -132,10 +132,11 @@ export function SalesChannels() {
 
         {/* Nota inferior */}
         <p className="mt-10 text-center text-sm text-muted-foreground max-w-2xl mx-auto">
-          Todos los pedidos se confirman por WhatsApp con foto del producto real antes del envío.
-          Precios sujetos a disponibilidad y temporada — consulta vigencia{" "}
+          {locale === "es"
+            ? "Todos los pedidos se confirman por WhatsApp con foto del producto real antes del envío. Precios sujetos a disponibilidad y temporada — consulta vigencia"
+            : "All orders are confirmed via WhatsApp with a photo of the real product before shipping. Prices subject to availability and season — check validity"}{" "}
           <a href={waLink} target="_blank" rel="noopener noreferrer" className="font-semibold text-ocean-700 hover:text-ocean-800 underline underline-offset-2">
-            aquí
+            {locale === "es" ? "aquí" : "here"}
           </a>.
         </p>
       </div>
