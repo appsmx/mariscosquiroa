@@ -4,6 +4,7 @@ import { Clock, Phone, MapPin, ArrowUpRight } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { brandEcosystem as fallbackBrands } from "@/lib/site-data";
 import { useApi } from "@/hooks/use-api";
+import { useI18n } from "@/i18n/I18nProvider";
 import { cn } from "@/lib/utils";
 
 const accentMap: Record<string, { gradient: string; text: string; bg: string; border: string; ring: string }> = {
@@ -25,6 +26,7 @@ const accentMap: Record<string, { gradient: string; text: string; bg: string; bo
 
 export function BrandEcosystem() {
   const { data: apiBrands } = useApi<any[]>("/api/public/brands");
+  const { t, locale } = useI18n();
   const brandEcosystem = apiBrands && apiBrands.length > 0
     ? apiBrands.map((b: any) => ({
         name: b.name,
@@ -48,15 +50,13 @@ export function BrandEcosystem() {
         {/* Encabezado */}
         <div className="max-w-3xl">
           <span className="inline-flex items-center gap-2 rounded-full bg-white/10 border border-white/20 backdrop-blur-sm px-3 py-1 text-xs font-semibold uppercase tracking-wide text-amber-brand-200">
-            Ecosistema Quiroa
+            {t.ecosystem.badge}
           </span>
           <h2 className="mt-4 font-display text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight text-white">
-            Una familia de marcas, una sola promesa
+            {t.ecosystem.title}
           </h2>
           <p className="mt-4 text-base sm:text-lg text-white/75 leading-relaxed">
-            Mariscos Quiroa es la distribuidora que abastece a nuestros propios restaurantes.
-            Cada uno tiene su personalidad, pero comparten el mismo compromiso: producto
-            fresco, tratado con respeto, servido con orgullo.
+            {t.ecosystem.subtitle}
           </p>
         </div>
 
@@ -139,7 +139,7 @@ export function BrandEcosystem() {
                     cn(accent.bg, accent.text, "hover:brightness-95")
                   )}
                 >
-                  Cómo llegar
+                  {t.ecosystem.visit}
                   <ArrowUpRight className="h-4 w-4" />
                 </a>
               </Card>
@@ -149,14 +149,16 @@ export function BrandEcosystem() {
 
         {/* Nota */}
         <p className="mt-10 text-center text-sm text-white/65 max-w-2xl mx-auto">
-          ¿Quieres abastecer tu propio restaurante con nuestra calidad?{" "}
+          {locale === "es"
+            ? "¿Quieres abastecer tu propio restaurante con nuestra calidad?"
+            : "Want to supply your own restaurant with our quality?"}{" "}
           <a
             href={`https://wa.me/${brandEcosystem[0] ? "526636999689" : ""}`}
             target="_blank"
             rel="noopener noreferrer"
             className="font-semibold text-amber-brand-200 hover:text-amber-brand-100 underline underline-offset-2"
           >
-            Conversemos sobre mayoreo
+            {locale === "es" ? "Conversemos sobre mayoreo" : "Let's talk wholesale"}
           </a>
         </p>
       </div>
