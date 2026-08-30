@@ -8,9 +8,11 @@ import {
 } from "@/components/ui/accordion";
 import { faqs as fallbackFaqs } from "@/lib/site-data";
 import { useApi } from "@/hooks/use-api";
+import { useI18n } from "@/i18n/I18nProvider";
 
 export function Faq() {
   const { data: apiFaqs } = useApi<any[]>("/api/public/faqs");
+  const { t } = useI18n();
   const faqs = apiFaqs && apiFaqs.length > 0
     ? apiFaqs.map((f: any) => ({ question: f.question, answer: f.answer }))
     : fallbackFaqs;
@@ -19,14 +21,13 @@ export function Faq() {
       <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
         <div className="text-center">
           <span className="inline-flex items-center gap-2 rounded-full bg-ocean-50 border border-ocean-100 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-ocean-700">
-            Preguntas frecuentes
+            {t.faq.badge}
           </span>
           <h2 className="mt-4 font-display text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight text-foreground">
-            Resuelve tus dudas
+            {t.faq.title}
           </h2>
           <p className="mt-4 text-base sm:text-lg text-muted-foreground leading-relaxed">
-            Las preguntas que más nos hacen. ¿No encuentras tu respuesta? Escríbenos por
-            WhatsApp y te respondemos al instante.
+            {t.faq.subtitle}
           </p>
         </div>
 
