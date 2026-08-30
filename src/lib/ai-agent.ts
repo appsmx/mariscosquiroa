@@ -17,7 +17,89 @@ import { db } from "@/lib/db";
 const DEEPSEEK_BASE_URL = process.env.DEEPSEEK_BASE_URL || "https://api.deepseek.com";
 const DEEPSEEK_MODEL = process.env.DEEPSEEK_MODEL || "deepseek-v4-flash";
 
+const GEMINI_BASE_URL = process.env.GEMINI_BASE_URL || "https://generativelanguage.googleapis.com/v1beta";
+const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
+
 type LLMMessage = { role: "system" | "user" | "assistant"; content: string };
+
+/**
+ * Orquestador de proveedores LLM con cascada:
+ *   1. Gemini (tier gratuito de Google AI Studio) — se usa primero para no gastar.
+ *   2. DeepSeek (de pago, económico) — respaldo si Gemini falla o agota su cuota.
+ *   3. (el caller cae al fallback del catálogo si ambos fallan)
+ * Devuelve texto ya limpio de markdown. Lanza error solo si TODOS los proveedores fallan.
+ */
+async function callLLM(
+  messages: LLMMessage[],
+  opts: { temperature?: number; maxTokens?: number } = {}
+): Promise<string> {
+  // 1) Gemini primero (gratis)
+  if (process.env.GEMINI_API_KEY) {
+    try {
+      const out = await callGemini(messages, opts);
+      if (out) return out;
+    } catch (e: any) {
+      console.log("Gemini no disponible, intentando DeepSeek:", e?.message || "unknown");
+    }
+  }
+
+  // 2) DeepSeek como respaldo
+  return await callDeepSeek(messages, opts);
+}
+
+/**
+ * Llama a la API de Gemini (Google AI Studio, formato generateContent).
+ * Convierte el formato de mensajes OpenAI al formato de Gemini.
+ */
+async function callGemini(
+  messages: LLMMessage[],
+  opts: { temperature?: number; maxTokens?: number } = {}
+): Promise<string> {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) throw new Error("GEMINI_API_KEY no configurada");
+
+  // Gemini separa el system prompt en systemInstruction; el resto va en contents.
+  const systemMsg = messages.find((m) => m.role === "system");
+  const turns = messages.filter((m) => m.role !== "system");
+
+  const contents = turns.map((m) => ({
+    role: m.role === "assistant" ? "model" : "user",
+    parts: [{ text: m.content }],
+  }));
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 25_000);
+
+  try {
+    const res = await fetch(
+      `${GEMINI_BASE_URL}/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...(systemMsg ? { systemInstruction: { parts: [{ text: systemMsg.content }] } } : {}),
+          contents,
+          generationConfig: {
+            temperature: opts.temperature ?? 0.7,
+            maxOutputTokens: opts.maxTokens ?? 600,
+          },
+        }),
+        signal: controller.signal,
+      }
+    );
+
+    if (!res.ok) {
+      const errText = await res.text().catch(() => "");
+      throw new Error(`Gemini HTTP ${res.status}: ${errText.slice(0, 200)}`);
+    }
+
+    const data = await res.json();
+    const text = data?.candidates?.[0]?.content?.parts?.map((p: any) => p.text).join("") || "";
+    return stripMarkdown(text.trim());
+  } finally {
+    clearTimeout(timeout);
+  }
+}
 
 /**
  * Llama a DeepSeek (Chat Completions, compatible con OpenAI) vía fetch.
@@ -241,10 +323,10 @@ export async function processCustomerMessage(
         { role: "user", content: message },
       ];
 
-      content = await callDeepSeek(messages, { temperature: 0.7, maxTokens: 600 });
+      content = await callLLM(messages, { temperature: 0.7, maxTokens: 600 });
     } catch (llmError: any) {
-      // Si DeepSeek falla (sin key, sin crédito, timeout), usar fallback inteligente
-      console.log("DeepSeek no disponible, usando fallback:", llmError?.message || "unknown");
+      // Si TODOS los proveedores (Gemini + DeepSeek) fallan, usar fallback inteligente
+      console.log("Ningún proveedor LLM disponible, usando fallback:", llmError?.message || "unknown");
       content = await generateFallbackResponse(message);
     }
 
@@ -427,7 +509,7 @@ Importante: usa español mexicano. Nunca uses voseo (no digas "tenés", "podés"
 
 No uses emojis. No uses markdown. Texto plano, conversacional.`;
 
-    const content = await callDeepSeek(
+    const content = await callLLM(
       [
         { role: "system", content: "Eres un asistente de gestión de negocios conciso y accionable. Hablas español mexicano (sin voseo)." },
         { role: "user", content: prompt },
