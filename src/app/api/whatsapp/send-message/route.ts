@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
 import { sendTextMessage } from "@/lib/whatsapp";
-import { auth } from "@/lib/auth";
+import { authOptions } from "@/lib/auth";
 
 /**
  * POST /api/whatsapp/send-message
@@ -13,7 +14,7 @@ import { auth } from "@/lib/auth";
  */
 export async function POST(req: NextRequest) {
   // 1. Verificar sesión admin
-  const session = await auth();
+  const session = await getServerSession(authOptions);
   if (!session) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
