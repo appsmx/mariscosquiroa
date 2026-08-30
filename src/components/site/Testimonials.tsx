@@ -3,9 +3,11 @@
 import { Star, Quote } from "lucide-react";
 import { testimonials as fallbackTestimonials } from "@/lib/site-data";
 import { useApi } from "@/hooks/use-api";
+import { useI18n } from "@/i18n/I18nProvider";
 
 export function Testimonials() {
   const { data: apiTestimonials } = useApi<any[]>("/api/public/testimonials");
+  const { t } = useI18n();
   const testimonials = apiTestimonials && apiTestimonials.length > 0
     ? apiTestimonials.map((t: any) => ({
         name: t.name,
@@ -21,14 +23,13 @@ export function Testimonials() {
         {/* Encabezado */}
         <div className="max-w-3xl mx-auto text-center">
           <span className="inline-flex items-center gap-2 rounded-full bg-amber-brand-50 border border-amber-brand-200 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-amber-brand-700">
-            Testimonios
+            {t.testimonials.badge}
           </span>
           <h2 className="mt-4 font-display text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight text-foreground">
-            Lo que dicen nuestros clientes
+            {t.testimonials.title}
           </h2>
           <p className="mt-4 text-base sm:text-lg text-muted-foreground leading-relaxed">
-            Restaurantes, pescaderías y familias que confían en Mariscos Quiroa para su
-            abastecimiento semanal.
+            {t.testimonials.subtitle}
           </p>
         </div>
 
