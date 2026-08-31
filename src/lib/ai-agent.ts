@@ -53,6 +53,7 @@ async function callLLM(
       method: "POST",
       headers,
       body: JSON.stringify({
+        project: "mariscosquiroa",
         task: "assistant",
         systemPrompt: systemMsg?.content || "",
         userMessage: lastUser?.content || "",
