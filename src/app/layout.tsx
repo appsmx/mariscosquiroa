@@ -69,6 +69,11 @@ export const metadata: Metadata = {
   },
   manifest: "/manifest.json",
   category: "food",
+  // Verificación de dominio para Meta Business (WhatsApp Business API)
+  // Requerida por Meta Business Suite → Business Verification → Domain verification
+  other: {
+    "facebook-domain-verification": "wengyclc1zaxjb5cxvxpywkz74kl1l",
+  },
 };
 
 export const viewport: Viewport = {
