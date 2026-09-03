@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { handleIncomingMessage } from "@/lib/whatsapp-bridge";
 import { verifyWebhookSignature, isWhatsappConfigured } from "@/lib/whatsapp";
 
+// Margen para que la IA (vía LOGAN) responda antes de que Vercel corte la función.
+// El default del plan free es 10s; 30s da holgura si un proveedor de la cascada tarda.
+export const maxDuration = 30;
+
 /**
  * GET /api/whatsapp/webhook
  *
@@ -127,12 +131,12 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 6. Responder 200 OK a Meta INMEDIATAMENTE (no esperar el procesamiento)
-    //    El procesamiento se hace en background.
-    //    Importante: capturamos errores para no romper el event loop.
-    Promise.allSettled(processingPromises).catch((e) => {
-      console.error("[whatsapp-webhook] Error en procesamiento background:", e);
-    });
+    // 6. Esperar el procesamiento ANTES de responder.
+    //    En Vercel (serverless) la función se congela al retornar, así que un
+    //    "fire and forget" (Promise sin await) mataría el envío de la respuesta
+    //    al cliente. Meta permite ~10s para el 200 OK; esperar aquí es seguro.
+    //    Usamos allSettled para que un error en un mensaje no tumbe a los demás.
+    await Promise.allSettled(processingPromises);
 
     return NextResponse.json({ ok: true }, { status: 200 });
   } catch (e: any) {
