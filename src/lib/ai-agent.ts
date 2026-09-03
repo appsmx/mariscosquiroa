@@ -237,14 +237,26 @@ export type ChatResponse = {
  */
 export async function processCustomerMessage(
   message: string,
-  history: Array<{ role: "user" | "assistant"; content: string }> = []
+  history: Array<{ role: "user" | "assistant"; content: string }> = [],
+  channel: "web" | "whatsapp" = "web"
 ): Promise<ChatResponse> {
   try {
     // Intentar primero con DeepSeek (HTTP directo, compatible OpenAI)
     let content = "";
     try {
       const businessContext = await buildBusinessContext();
-      const systemPrompt = AGENT_SYSTEM_PROMPT.replace("{BUSINESS_CONTEXT}", businessContext);
+      let systemPrompt = AGENT_SYSTEM_PROMPT.replace("{BUSINESS_CONTEXT}", businessContext);
+
+      // Ajuste según el canal desde donde escribe el cliente
+      if (channel === "whatsapp") {
+        systemPrompt += `
+
+CANAL ACTUAL: WhatsApp.
+- El cliente YA te está escribiendo POR WHATSAPP. NUNCA le digas "escríbenos por WhatsApp" ni le des el número de WhatsApp — ya está aquí. Sería absurdo.
+- Si necesita atención humana, di: "En un momento te atiende una persona del equipo" (no lo mandes a otro WhatsApp).
+- No sugieras "agregar al carrito del sitio" como acción principal; aquí se cotiza por este mismo chat. Puedes mencionar el sitio web solo si el cliente pregunta por él.
+- Formato WhatsApp: para resaltar usa *un asterisco* (negrita de WhatsApp), NO dobles asteriscos. Mantén los mensajes cortos y fáciles de leer en el celular.`;
+      }
 
       const messages: LLMMessage[] = [
         { role: "system", content: systemPrompt },
@@ -268,16 +280,19 @@ export async function processCustomerMessage(
       /whatsapp|llámanos|teléfono|tel:|hablar con|humano|asesor|dueño/i.test(content) &&
       /disculpa|no puedo|no tengo|deriva|escribe|consulta/i.test(content);
 
-    // Detectar acciones sugeridas (heurística simple)
+    // Detectar acciones sugeridas (heurística simple).
+    // Solo aplican al widget web; en WhatsApp no hay botones de carrito/WhatsApp.
     const actions: ChatAction[] = [];
-    if (/agrega.*carrito|agregar al carrito|carrito de cotización/i.test(content)) {
-      actions.push({ type: "open_cart" });
-    }
-    if (/whatsapp|wa\.me|52661/i.test(content)) {
-      actions.push({
-        type: "open_whatsapp",
-        message: "Hola Mariscos Quiroa, vengo desde el chat de la web.",
-      });
+    if (channel === "web") {
+      if (/agrega.*carrito|agregar al carrito|carrito de cotización/i.test(content)) {
+        actions.push({ type: "open_cart" });
+      }
+      if (/whatsapp|wa\.me|52661/i.test(content)) {
+        actions.push({
+          type: "open_whatsapp",
+          message: "Hola Mariscos Quiroa, vengo desde el chat de la web.",
+        });
+      }
     }
 
     return {
