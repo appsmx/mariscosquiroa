@@ -238,7 +238,7 @@ export type ChatResponse = {
 export async function processCustomerMessage(
   message: string,
   history: Array<{ role: "user" | "assistant"; content: string }> = [],
-  channel: "web" | "whatsapp" = "web"
+  channel: "web" | "whatsapp" | "messenger" | "instagram" = "web"
 ): Promise<ChatResponse> {
   try {
     // Intentar primero con DeepSeek (HTTP directo, compatible OpenAI)
@@ -248,14 +248,16 @@ export async function processCustomerMessage(
       let systemPrompt = AGENT_SYSTEM_PROMPT.replace("{BUSINESS_CONTEXT}", businessContext);
 
       // Ajuste según el canal desde donde escribe el cliente
-      if (channel === "whatsapp") {
+      if (channel === "whatsapp" || channel === "messenger" || channel === "instagram") {
+        const canalNombre =
+          channel === "whatsapp" ? "WhatsApp" : channel === "messenger" ? "Facebook Messenger" : "Instagram Direct";
         systemPrompt += `
 
-CANAL ACTUAL: WhatsApp.
-- El cliente YA te está escribiendo POR WHATSAPP. NUNCA le digas "escríbenos por WhatsApp" ni le des el número de WhatsApp — ya está aquí. Sería absurdo.
-- Si necesita atención humana, di: "En un momento te atiende una persona del equipo" (no lo mandes a otro WhatsApp).
+CANAL ACTUAL: ${canalNombre}.
+- El cliente YA te está escribiendo POR ${canalNombre.toUpperCase()}. NUNCA lo derives a "escríbenos por WhatsApp/Messenger/Instagram" ni le des un número/usuario para escribir — ya está aquí conversando contigo. Sería absurdo.
+- Si necesita atención humana, di: "En un momento te atiende una persona del equipo" (no lo mandes a otro canal).
 - No sugieras "agregar al carrito del sitio" como acción principal; aquí se cotiza por este mismo chat. Puedes mencionar el sitio web solo si el cliente pregunta por él.
-- Formato WhatsApp: para resaltar usa *un asterisco* (negrita de WhatsApp), NO dobles asteriscos. Mantén los mensajes cortos y fáciles de leer en el celular.`;
+- Mantén los mensajes cortos y fáciles de leer en el celular. Evita formato markdown con asteriscos dobles.`;
       }
 
       const messages: LLMMessage[] = [
