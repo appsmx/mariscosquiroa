@@ -50,8 +50,8 @@ async function main() {
       facebookUrl: "https://www.facebook.com/profile.php?id=61594028451624",
       instagramUrl: "https://www.instagram.com/mariscos.quiroa/",
       tiktokUrl: "https://tiktok.com/@mariscosquiroa",
-      heroImage: "https://z-cdn.chatglm.cn/image-search-mcp/images-ppt/198b130d5c30.jpg",
-      storyImage: "https://z-cdn.chatglm.cn/image-search-mcp/images-ppt/dbc81f24f53e.jpg",
+      heroImage: "/placeholder-producto.svg",
+      storyImage: "/placeholder-producto.svg",
     },
   });
   console.log("  ✓ Configuración del sitio");
@@ -87,7 +87,7 @@ async function main() {
       name: "Camarón",
       scientific: "Litopenaeus vannamei",
       categoryId: categoryMap["marisco"],
-      image: "https://z-cdn.chatglm.cn/image-search-mcp/images-ppt/7e5a94b57e1b.jpg",
+      image: "/placeholder-producto.svg",
       description:
         "Camarón blanco y café del Pacífico mexicano, recién capturado y clasificado por tamaño. Disponible entero, pelado, limpio o precocido. Nuestro producto estrella por su textura firme y sabor dulce.",
       availability: "DIARIA",
@@ -106,7 +106,7 @@ async function main() {
       name: "Pulpo",
       scientific: "Octopus maya / vulgaris",
       categoryId: categoryMap["marisco"],
-      image: "https://z-cdn.chatglm.cn/image-search-mcp/images-ppt/d59b02deb53e.jpg",
+      image: "/placeholder-producto.svg",
       description:
         "Pulpo rojo del Pacífico y caribeño, seleccionado por peso y calidad de tentáculo. Ideal para parrilla, carpaccios y tacos gourmet. Limpio y listo para cocción.",
       availability: "DIARIA",
@@ -123,7 +123,7 @@ async function main() {
       name: "Calamar",
       scientific: "Dosidicus gigas",
       categoryId: categoryMap["marisco"],
-      image: "https://z-cdn.chatglm.cn/image-search-mcp/images-ppt/3c4315c890f8.jpeg",
+      image: "/placeholder-producto.svg",
       description:
         "Calamar gigante del Pacífico en tubo, anillos o entero. Textura firme perfecta para empanizados, ceviches y frituras. Fresco del día congelado en sitio.",
       availability: "DIARIA",
@@ -139,7 +139,7 @@ async function main() {
       name: "Callo de Hacha",
       scientific: "Atrina maura",
       categoryId: categoryMap["marisco"],
-      image: "https://z-cdn.chatglm.cn/image-search-mcp/images-ppt/8ad617fdb5f6.jpg",
+      image: "/placeholder-producto.svg",
       description:
         "El auténtico callo de hacha bajacaliforniano, desvalvado a mano y empacado en su propio jugo. Joya de las costas del Pacífico para ceviches y cócteles premium.",
       availability: "TEMPORADA",
@@ -156,7 +156,7 @@ async function main() {
       name: "Almeja",
       scientific: "Megapitaria squalida",
       categoryId: categoryMap["marisco"],
-      image: "https://z-cdn.chatglm.cn/image-search-mcp/images-ppt/250e30c16398.jpg",
+      image: "/placeholder-producto.svg",
       description:
         "Almeja chocolata y pata de mula vivas, recibidas cada madrugada. Perfectas para prepararse al vapor, a la talla o crudas con limón. Sello de frescura en cada valva.",
       availability: "DIARIA",
@@ -172,7 +172,7 @@ async function main() {
       name: "Ostiones",
       scientific: "Crassostrea gigas / corteziensis",
       categoryId: categoryMap["marisco"],
-      image: "https://z-cdn.chatglm.cn/image-search-mcp/images-ppt/670e74545aac.jpg",
+      image: "/placeholder-producto.svg",
       description:
         "Ostiones cultivados en aguas certificadas de Sonora y Baja California, entregados vivos en concha o desvalvados al momento. Sabor salino intenso y textura cremosa.",
       availability: "DIARIA",
@@ -188,7 +188,7 @@ async function main() {
       slug: "pescados-frescos",
       name: "Pescados Frescos",
       categoryId: categoryMap["pescado"],
-      image: "https://z-cdn.chatglm.cn/image-search-mcp/images-ppt/9518189e3f08.jpg",
+      image: "/placeholder-producto.svg",
       description:
         "Variedad de pescados del día: sierra, lisa, robalo, huachinango, currina, mojarra y pargo. Fileteado profesionalmente bajo pedido. Trazabilidad de embarcación certificada.",
       availability: "DIARIA",
@@ -203,7 +203,7 @@ async function main() {
       slug: "especialidades",
       name: "Especialidades",
       categoryId: categoryMap["especialidad"],
-      image: "https://z-cdn.chatglm.cn/image-search-mcp/images-ppt/3a02cf2cdb77.jpg",
+      image: "/placeholder-producto.svg",
       description:
         "Ceviches preparados al momento, aguachiles, cócteles y mariscadas listas para evento. Atendemos restaurantes, banquetes y reuniones privadas con pedido anticipado de 24 h.",
       availability: "BAJO_PEDIDO",

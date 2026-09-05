@@ -52,11 +52,11 @@ export const siteConfig = {
 
   // ---- Imágenes (URLs CDN, sustituibles) ----
   images: {
-    hero: "https://z-cdn.chatglm.cn/image-search-mcp/images-ppt/198b130d5c30.jpg",
+    hero: "/placeholder-producto.svg",
     story:
-      "https://z-cdn.chatglm.cn/image-search-mcp/images-ppt/dbc81f24f53e.jpg",
+      "/placeholder-producto.svg",
     ctaBanner:
-      "https://z-cdn.chatglm.cn/image-search-mcp/images-ppt/7e5a94b57e1b.jpg",
+      "/placeholder-producto.svg",
   },
 
   // ---- Estadísticas (hero) ----
@@ -101,7 +101,7 @@ export const products: Product[] = [
     scientific: "Litopenaeus vannamei",
     category: "marisco",
     image:
-      "https://z-cdn.chatglm.cn/image-search-mcp/images-ppt/7e5a94b57e1b.jpg",
+      "/placeholder-producto.svg",
     description:
       "Camarón blanco y café del Pacífico mexicano, recién capturado y clasificado por tamaño. Disponible entero, pelado, limpio o precocido. Nuestro producto estrella por su textura firme y sabor dulce.",
     presentation: ["Entero U-15", "Pelado 16/20", "Pelado 21/25", "Precocido"],
@@ -114,7 +114,7 @@ export const products: Product[] = [
     scientific: "Octopus maya / vulgaris",
     category: "marisco",
     image:
-      "https://z-cdn.chatglm.cn/image-search-mcp/images-ppt/d59b02deb53e.jpg",
+      "/placeholder-producto.svg",
     description:
       "Pulpo rojo del Pacífico y caribeño, seleccionado por peso y calidad de tentáculo. Ideal para parrilla, carpaccios y tacos gourmet. Limpio y listo para cocción.",
     presentation: ["Tentáculo 1-2 kg", "Entero 2-4 kg", "Precocido"],
@@ -127,7 +127,7 @@ export const products: Product[] = [
     scientific: "Dosidicus gigas",
     category: "marisco",
     image:
-      "https://z-cdn.chatglm.cn/image-search-mcp/images-ppt/3c4315c890f8.jpeg",
+      "/placeholder-producto.svg",
     description:
       "Calamar gigante del Pacífico en tubo, anillos o entero. Textura firme perfecta para empanizados, ceviches y frituras. Fresco del día congelado en sitio.",
     presentation: ["Tubo limpio", "Anillos", "Entero", "Aletas"],
@@ -140,7 +140,7 @@ export const products: Product[] = [
     scientific: "Atrina maura",
     category: "marisco",
     image:
-      "https://z-cdn.chatglm.cn/image-search-mcp/images-ppt/8ad617fdb5f6.jpg",
+      "/placeholder-producto.svg",
     description:
       "El auténtico callo de hacha de Baja California, desvalvado a mano y empacado en su propio jugo. Joya de las costas del Pacífico para ceviches y cócteles premium.",
     presentation: ["Medio litro", "Litro", "Bandeja 500 g"],
@@ -153,7 +153,7 @@ export const products: Product[] = [
     scientific: "Megapitaria squalida",
     category: "marisco",
     image:
-      "https://z-cdn.chatglm.cn/image-search-mcp/images-ppt/250e30c16398.jpg",
+      "/placeholder-producto.svg",
     description:
       "Almeja chocolata y pata de mula vivas, recibidas cada madrugada. Perfectas para prepararse al vapor, a la talla o crudas con limón. Sello de frescura en cada valva.",
     presentation: ["Viva por kilo", "Desvalvada", "Media concha"],
@@ -166,7 +166,7 @@ export const products: Product[] = [
     scientific: "Crassostrea gigas / corteziensis",
     category: "marisco",
     image:
-      "https://z-cdn.chatglm.cn/image-search-mcp/images-ppt/670e74545aac.jpg",
+      "/placeholder-producto.svg",
     description:
       "Ostiones cultivados en aguas certificadas de Baja California, entregados vivos en concha o desvalvados al momento. Sabor salino intenso y textura cremosa.",
     presentation: ["En concha por docena", "Desvalvados", "Frasco litro"],
@@ -178,7 +178,7 @@ export const products: Product[] = [
     name: "Pescados Frescos",
     category: "pescado",
     image:
-      "https://z-cdn.chatglm.cn/image-search-mcp/images-ppt/9518189e3f08.jpg",
+      "/placeholder-producto.svg",
     description:
       "Variedad de pescados del día: sierra, lisa, robalo, huachinango, currina, mojarra y pargo. Fileteado profesionalmente bajo pedido. Trazabilidad de embarcación certificada.",
     presentation: ["Entero fresco", "Filete", "Posta", "Por kilo"],
@@ -190,7 +190,7 @@ export const products: Product[] = [
     name: "Especialidades",
     category: "especialidad",
     image:
-      "https://z-cdn.chatglm.cn/image-search-mcp/images-ppt/3a02cf2cdb77.jpg",
+      "/placeholder-producto.svg",
     description:
       "Ceviches preparados al momento, aguachiles, cócteles y mariscadas listas para evento. Atendemos restaurantes, banquetes y reuniones privadas con pedido anticipado de 24 h.",
     presentation: ["Ceviche 1 kg", "Cóctel individual", "Mariscada para 4-8 p"],

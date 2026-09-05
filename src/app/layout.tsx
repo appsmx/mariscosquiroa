@@ -53,7 +53,7 @@ export const metadata: Metadata = {
     url: "https://mariscosquiroa.com",
     images: [
       {
-        url: "https://z-cdn.chatglm.cn/image-search-mcp/images-ppt/198b130d5c30.jpg",
+        url: "https://www.mariscosquiroa.com/logo.png",
         width: 1200,
         height: 630,
         alt: "Mariscos Quiroa — Distribuidora de mariscos frescos",
@@ -65,7 +65,7 @@ export const metadata: Metadata = {
     title: "Mariscos Quiroa | Pescados y Mariscos Frescos",
     description:
       "El sabor del Pacífico en cada pedido. Mayoreo y menudeo de mariscos frescos en Rosarito, Baja California.",
-    images: ["https://z-cdn.chatglm.cn/image-search-mcp/images-ppt/198b130d5c30.jpg"],
+    images: ["https://www.mariscosquiroa.com/logo.png"],
   },
   manifest: "/manifest.json",
   category: "food",
