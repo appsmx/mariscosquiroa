@@ -40,7 +40,7 @@ export async function handleIncomingMessengerMessage(
 
   try {
     // Indicador de "escribiendo..." mientras la IA responde
-    await sendTypingOn(senderId);
+    await sendTypingOn(senderId, channel);
 
     // 1. Recuperar / crear conversación
     const conversation = await db.whatsappConversation.upsert({
@@ -83,7 +83,7 @@ export async function handleIncomingMessengerMessage(
     const iaResponse = await processCustomerMessage(text, history, channel);
 
     // 5. Enviar respuesta
-    const sent = await sendMessengerMessage({ recipientId: senderId, text: iaResponse.content });
+    const sent = await sendMessengerMessage({ recipientId: senderId, text: iaResponse.content, channel });
 
     // 6. Persistir mensaje saliente
     await db.whatsappMessage.create({

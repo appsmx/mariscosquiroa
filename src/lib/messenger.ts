@@ -21,6 +21,20 @@ export type MessengerChannel = "messenger" | "instagram";
 interface SendMessageParams {
   recipientId: string; // PSID (Messenger) o IGSID (Instagram)
   text: string;
+  channel?: MessengerChannel; // default "messenger"
+}
+
+/**
+ * Devuelve el token correcto según el canal.
+ * - Instagram: INSTAGRAM_ACCESS_TOKEN (si está configurado); si no, cae al de la página.
+ * - Messenger: MESSENGER_PAGE_ACCESS_TOKEN.
+ * (El token de acceso de IG y el de la página de FB son distintos.)
+ */
+function getToken(channel: MessengerChannel = "messenger"): string | undefined {
+  if (channel === "instagram") {
+    return process.env.INSTAGRAM_ACCESS_TOKEN || process.env.MESSENGER_PAGE_ACCESS_TOKEN;
+  }
+  return process.env.MESSENGER_PAGE_ACCESS_TOKEN;
 }
 
 /**
@@ -30,10 +44,11 @@ interface SendMessageParams {
 export async function sendMessengerMessage({
   recipientId,
   text,
+  channel = "messenger",
 }: SendMessageParams): Promise<boolean> {
-  const token = process.env.MESSENGER_PAGE_ACCESS_TOKEN;
+  const token = getToken(channel);
   if (!token) {
-    console.error("[messenger] Falta MESSENGER_PAGE_ACCESS_TOKEN");
+    console.error(`[messenger] Falta token para canal ${channel}`);
     return false;
   }
 
@@ -65,8 +80,8 @@ export async function sendMessengerMessage({
 /**
  * Marca el indicador de "escribiendo..." (typing) — opcional, mejora la UX.
  */
-export async function sendTypingOn(recipientId: string): Promise<void> {
-  const token = process.env.MESSENGER_PAGE_ACCESS_TOKEN;
+export async function sendTypingOn(recipientId: string, channel: MessengerChannel = "messenger"): Promise<void> {
+  const token = getToken(channel);
   if (!token) return;
   const url = `${BASE_URL}/me/messages?access_token=${encodeURIComponent(token)}`;
   try {
