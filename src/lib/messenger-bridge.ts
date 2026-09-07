@@ -79,8 +79,12 @@ export async function handleIncomingMessengerMessage(
         content: m.content,
       })) as Array<{ role: "user" | "assistant"; content: string }>;
 
-    // 4. Invocar al agente IA (mismo cerebro; canal específico)
-    const iaResponse = await processCustomerMessage(text, history, channel);
+    // 4. Invocar al agente IA (mismo cerebro; canal específico).
+    //    En Messenger/Instagram no hay teléfono; usamos el convoKey (ig:/msgr:)
+    //    como identificador único del cliente para asociar el pedido.
+    const iaResponse = await processCustomerMessage(text, history, channel, {
+      customerPhone: convoKey,
+    });
 
     // 5. Enviar respuesta
     const sent = await sendMessengerMessage({ recipientId: senderId, text: iaResponse.content, channel });

@@ -3,7 +3,8 @@ import { handleIncomingMessengerMessage } from "@/lib/messenger-bridge";
 import { verifyWebhookSignature } from "@/lib/whatsapp";
 
 // Margen para que la IA (vía LOGAN) responda antes de que Vercel corte la función.
-export const maxDuration = 30;
+// Con function calling son hasta 2 llamadas LLM secuenciales; damos más holgura.
+export const maxDuration = 60;
 
 /**
  * Webhook de la Messenger Platform (Facebook Messenger + Instagram Direct).
