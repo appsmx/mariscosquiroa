@@ -16,10 +16,12 @@ import { WhatsAppFloat } from "@/components/site/WhatsAppFloat";
 import { CartButton } from "@/components/site/CartButton";
 import { CartDrawer } from "@/components/site/CartDrawer";
 import { ChatWidget } from "@/components/site/ChatWidget";
+import { OceanInteractiveCanvas } from "@/components/site/OceanInteractiveCanvas";
 
 export default function Home() {
   return (
     <div className="flex min-h-screen flex-col bg-background">
+      <OceanInteractiveCanvas />
       <Navbar />
       <main className="flex-1">
         <Hero />
