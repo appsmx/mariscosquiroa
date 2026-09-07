@@ -3,8 +3,9 @@ import { handleIncomingMessage } from "@/lib/whatsapp-bridge";
 import { verifyWebhookSignature, isWhatsappConfigured } from "@/lib/whatsapp";
 
 // Margen para que la IA (vía LOGAN) responda antes de que Vercel corte la función.
-// El default del plan free es 10s; 30s da holgura si un proveedor de la cascada tarda.
-export const maxDuration = 30;
+// Con function calling son hasta 2 llamadas LLM secuenciales (decidir tool +
+// redactar confirmación), así que damos más holgura. Cada callLLM aborta a 20s.
+export const maxDuration = 60;
 
 /**
  * GET /api/whatsapp/webhook

@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db";
-import { generateOrderCode } from "@/lib/admin";
+import { createOrder } from "@/lib/order-service";
 
 /**
  * POST /api/public/orders
@@ -39,83 +38,23 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const channel = body.channel === "MAYOREO" ? "MAYOREO" : "MENUDEO";
-
-    // Buscar o crear cliente por teléfono
-    const cleanPhone = body.customerPhone.replace(/\s/g, "");
-    let customer = await db.customer.findUnique({
-      where: { phone: cleanPhone },
-    });
-    if (!customer) {
-      customer = await db.customer.create({
-        data: {
-          name: body.customerName,
-          phone: cleanPhone,
-          email: body.customerEmail || null,
-          channel,
-          businessName: body.businessName || null,
-          rfc: body.rfc || null,
-          address: body.deliveryAddress || null,
-          city: body.deliveryCity || null,
-          state: body.deliveryState || null,
-        },
-      });
-    } else {
-      // Actualizar canal si es mayorista
-      if (channel === "MAYOREO" && customer.channel !== "MAYOREO") {
-        await db.customer.update({
-          where: { id: customer.id },
-          data: { channel: "MAYOREO" },
-        });
-      }
-    }
-
-    // Generar código secuencial
-    const year = new Date().getFullYear();
-    const count = await db.order.count({
-      where: { code: { startsWith: `MEJ-${year}-` } },
-    });
-    const code = generateOrderCode(count + 1, year);
-
-    // Calcular subtotal
-    const items = body.items.map((it: any) => {
-      const subtotal = Number(it.quantity) * Number(it.unitPrice || 0);
-      return {
-        productId: it.productId || null,
-        productName: it.productName || "Producto",
-        presentation: it.presentation || null,
-        quantity: Number(it.quantity),
-        unit: it.unit || "kg",
-        unitPrice: Number(it.unitPrice || 0),
-        subtotal,
-        notes: it.notes || null,
-      };
-    });
-    const subtotal = items.reduce((sum: number, it: any) => sum + it.subtotal, 0);
-    const deliveryCost = Number(body.deliveryCost) || 0;
-    const total = subtotal + deliveryCost;
-
-    // Crear pedido
-    const order = await db.order.create({
-      data: {
-        code,
-        customerId: customer.id,
-        customerName: body.customerName,
-        customerPhone: cleanPhone,
-        customerEmail: body.customerEmail || null,
-        channel,
-        status: "NUEVO",
-        subtotal,
-        deliveryCost,
-        total,
-        deliveryAddress: body.deliveryAddress || null,
-        deliveryCity: body.deliveryCity || null,
-        deliveryDate: body.deliveryDate ? new Date(body.deliveryDate) : null,
-        notes: body.notes || null,
-        source: "web",
-        items: { create: items },
-      },
-      include: { items: true, customer: true },
+    // Crear el pedido a través del servicio compartido (mismo camino que usa
+    // el agente de IA vía function calling).
+    const order = await createOrder({
+      customerName: body.customerName,
+      customerPhone: body.customerPhone,
+      customerEmail: body.customerEmail,
+      channel: body.channel === "MAYOREO" ? "MAYOREO" : "MENUDEO",
+      businessName: body.businessName,
+      rfc: body.rfc,
+      deliveryAddress: body.deliveryAddress,
+      deliveryCity: body.deliveryCity,
+      deliveryState: body.deliveryState,
+      deliveryDate: body.deliveryDate,
+      deliveryCost: body.deliveryCost,
+      notes: body.notes,
+      items: body.items,
+      source: "web",
     });
 
     return NextResponse.json(

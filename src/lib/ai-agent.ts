@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { createOrder } from "@/lib/order-service";
 
 /**
  * Servicio central del agente de IA de Mariscos Quiroa.
@@ -19,29 +20,54 @@ import { db } from "@/lib/db";
 
 const LOGAN_LLM_URL = process.env.LOGAN_LLM_URL || "https://logancorp.vercel.app/api/llm";
 
-type LLMMessage = { role: "system" | "user" | "assistant"; content: string };
+type ToolCall = {
+  id: string;
+  type: "function";
+  function: { name: string; arguments: string };
+};
+
+type LLMMessage = {
+  role: "system" | "user" | "assistant" | "tool";
+  content: string;
+  tool_calls?: ToolCall[];
+  tool_call_id?: string;
+  name?: string;
+};
+
+type LLMTool = {
+  type: "function";
+  function: { name: string; description: string; parameters: Record<string, unknown> };
+};
+
+type LLMResult = { text: string; toolCalls?: ToolCall[] };
 
 /**
  * Llama al proxy LLM de LOGAN OS. LOGAN elige el proveedor (cascada por costo)
- * y usa SUS propias API keys. Devuelve texto ya limpio de markdown.
+ * y usa SUS propias API keys. Devuelve el texto (limpio de markdown) y, si el
+ * modelo decidió invocar una herramienta, los toolCalls.
  * Lanza error si LOGAN no responde, para que el caller caiga al fallback.
  *
  * Formato del endpoint (logan-app /api/llm):
- *   body: { task, systemPrompt, userMessage, history, maxTokens, temperature }
- *   resp: { text, provider, model }
+ *   body: { task, systemPrompt, userMessage, history, maxTokens, temperature, tools?, toolChoice? }
+ *   resp: { text, provider, model, toolCalls? }
  */
 async function callLLM(
   messages: LLMMessage[],
-  opts: { temperature?: number; maxTokens?: number } = {}
-): Promise<string> {
+  opts: { temperature?: number; maxTokens?: number; tools?: LLMTool[] } = {}
+): Promise<LLMResult> {
   // Separar el system prompt del resto (LOGAN lo recibe aparte)
   const systemMsg = messages.find((m) => m.role === "system");
   const conversation = messages.filter((m) => m.role !== "system");
+  // El "userMessage" del contrato de LOGAN es el último turno del usuario.
+  // Si el último turno es una respuesta de tool (rol "tool"), NO hay userMessage
+  // nuevo: todo el contexto (incluida la tool response) va en history.
   const lastUser = [...conversation].reverse().find((m) => m.role === "user");
-  const history = conversation.filter((m) => m !== lastUser);
+  const lastMsg = conversation[conversation.length - 1];
+  const userIsLast = lastMsg && lastMsg === lastUser;
+  const history = userIsLast ? conversation.filter((m) => m !== lastUser) : conversation;
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 25_000);
+  const timeout = setTimeout(() => controller.abort(), 20_000);
 
   try {
     const headers: Record<string, string> = { "Content-Type": "application/json" };
@@ -56,10 +82,11 @@ async function callLLM(
         project: "mariscosquiroa",
         task: "assistant",
         systemPrompt: systemMsg?.content || "",
-        userMessage: lastUser?.content || "",
+        userMessage: userIsLast ? lastUser?.content || "" : "",
         history,
         temperature: opts.temperature ?? 0.7,
         maxTokens: opts.maxTokens ?? 600,
+        ...(opts.tools && opts.tools.length > 0 ? { tools: opts.tools, toolChoice: "auto" } : {}),
       }),
       signal: controller.signal,
     });
@@ -70,7 +97,10 @@ async function callLLM(
     }
 
     const data = await res.json();
-    return stripMarkdown((data?.text || "").trim());
+    return {
+      text: stripMarkdown((data?.text || "").trim()),
+      toolCalls: Array.isArray(data?.toolCalls) && data.toolCalls.length > 0 ? data.toolCalls : undefined,
+    };
   } finally {
     clearTimeout(timeout);
   }
@@ -169,6 +199,96 @@ REDES SOCIALES:
 }
 
 /**
+ * Ejecuta la tool `crear_pedido`: resuelve los precios reales desde el catálogo
+ * (NO confía en precios del modelo), crea la orden vía el servicio compartido y
+ * devuelve un resumen para que el modelo confirme al cliente.
+ *
+ * @param args      argumentos que el modelo pasó a la tool (ya parseados)
+ * @param ctx       datos del canal para completar el pedido (teléfono, source)
+ */
+async function ejecutarCrearPedido(
+  args: any,
+  ctx: { customerPhone: string; source: string }
+): Promise<{ ok: boolean; result: string; orderCode?: string; total?: number }> {
+  try {
+    const rawItems: any[] = Array.isArray(args?.items) ? args.items : [];
+    if (rawItems.length === 0) {
+      return { ok: false, result: "No se recibieron productos para el pedido." };
+    }
+
+    const channel: "MAYOREO" | "MENUDEO" = args?.channel === "MAYOREO" ? "MAYOREO" : "MENUDEO";
+
+    // Catálogo real para resolver precios (el modelo no fija precios).
+    const products = await db.product.findMany({
+      where: { active: true },
+      include: { prices: true, presentations: true },
+    });
+
+    const items = rawItems.map((it) => {
+      const name = String(it.productName || "").trim();
+      const product = products.find(
+        (p) => p.name.toLowerCase() === name.toLowerCase() ||
+               p.name.toLowerCase().includes(name.toLowerCase()) ||
+               name.toLowerCase().includes(p.name.toLowerCase())
+      );
+
+      // Elegir precio del canal; preferir el que matchee la presentación.
+      let unitPrice = 0;
+      let unit = String(it.unit || "kg");
+      if (product) {
+        const pricesForChannel = product.prices.filter((pr) => pr.channel === channel);
+        const pres = it.presentation ? String(it.presentation).toLowerCase() : null;
+        const match =
+          (pres && pricesForChannel.find((pr) => pr.presentation?.toLowerCase() === pres)) ||
+          pricesForChannel[0] ||
+          product.prices[0];
+        if (match) {
+          unitPrice = match.pricePerKg ?? match.priceUnit ?? 0;
+          unit = match.unit || unit;
+        }
+      }
+
+      return {
+        productId: product?.id || null,
+        productName: product?.name || name || "Producto",
+        presentation: it.presentation ? String(it.presentation) : null,
+        quantity: Number(it.quantity) || 0,
+        unit,
+        unitPrice,
+      };
+    });
+
+    const order = await createOrder({
+      customerName: String(args?.customerName || "Cliente"),
+      customerPhone: ctx.customerPhone,
+      channel,
+      deliveryAddress: args?.deliveryAddress || null,
+      deliveryCity: args?.deliveryCity || null,
+      notes: args?.notes || null,
+      items,
+      source: ctx.source,
+    });
+
+    const itemsResumen = order.items
+      .map((it) => `${it.quantity} ${it.unit} de ${it.productName}${it.presentation ? ` (${it.presentation})` : ""}${it.unitPrice ? ` a $${it.unitPrice}/${it.unit}` : ""}`)
+      .join("; ");
+
+    return {
+      ok: true,
+      orderCode: order.code,
+      total: order.total,
+      result: `Pedido registrado con éxito. Código: ${order.code}. Productos: ${itemsResumen}. Total estimado: $${order.total} MXN (status: NUEVO, el equipo lo confirmará). Confírmale al cliente el código ${order.code} y que su pedido quedó registrado.`,
+    };
+  } catch (e: any) {
+    console.error("[crear_pedido] Error:", e?.message);
+    return {
+      ok: false,
+      result: `No se pudo registrar el pedido: ${e?.message || "error desconocido"}. Discúlpate con el cliente y ofrécele intentar de nuevo o dejar sus datos.`,
+    };
+  }
+}
+
+/**
  * System prompt del agente vendedor de Mariscos Quiroa.
  * Especializado en mariscos, tono mexicano cercano y profesional.
  */
@@ -193,9 +313,17 @@ QUÉ PUEDES HACER:
 5. Guiar al cliente a usar el carrito del sitio para armar su cotización, o a escribir por WhatsApp.
 6. Aclarar dudas sobre métodos de pago, facturación, cadena de frío.
 
-ACCIONES QUE PUEDES SUGERIR (pero no ejecutar tú):
-- "Agrega el producto al carrito desde la tarjeta del catálogo"
-- "Envía tu cotización por WhatsApp con el botón flotante"
+TOMAR PEDIDOS (MUY IMPORTANTE):
+Tienes una herramienta llamada crear_pedido que REGISTRA el pedido en el sistema de verdad. Úsala así:
+- Cuando el cliente CONFIRME que quiere hacer el pedido y ya tengas: (1) su nombre, (2) al menos un producto con su cantidad. Si te falta el nombre, pídelo una vez antes de registrar.
+- NO la uses para cotizar o dar precios: eso lo haces conversando. Solo la usas para CONFIRMAR y registrar el pedido.
+- Después de llamarla, el sistema te devuelve un CÓDIGO de pedido (ej. MEJ-2026-0042). Confírmale al cliente ese código y que su pedido quedó registrado; el equipo lo preparará. NUNCA inventes un código: usa el que te devuelve la herramienta.
+- No inventes precios al llamar la herramienta: el sistema calcula el total con los precios reales del catálogo. Tú solo pasas producto, presentación y cantidad.
+- Si la herramienta falla, discúlpate y ofrece reintentar o tomar sus datos para que el equipo lo capture.
+- Una vez registrado el pedido, si el cliente pregunta "¿quedó?/¿lo tienen?", responde con seguridad que SÍ, dándole el código; ya está en el sistema.
+
+OTRAS ACCIONES QUE PUEDES SUGERIR:
+- "Agrega el producto al carrito desde la tarjeta del catálogo" (solo en la web)
 - "Llámanos al (663) 699-9689"
 
 CUÁNDO ESCALAR A HUMANO:
@@ -221,12 +349,60 @@ export type ChatAction =
   | { type: "suggest_product"; productId: string; productName: string }
   | { type: "open_whatsapp"; message: string }
   | { type: "open_cart" }
+  | { type: "order_created"; code: string; total: number }
   | { type: "escalate_human"; reason: string };
 
 export type ChatResponse = {
   content: string;
   actions?: ChatAction[];
   needsHuman?: boolean;
+  /** Código del pedido creado en esta interacción (si el bot tomó la orden). */
+  orderCode?: string;
+};
+
+/**
+ * Definición de la herramienta `crear_pedido` (function calling).
+ * El modelo la invoca cuando el cliente CONFIRMA un pedido con datos completos.
+ * Los precios NO los pone el modelo: se resuelven en el servidor desde el
+ * catálogo real (evita precios inventados). El modelo solo aporta qué producto,
+ * presentación y cantidad, más los datos de contacto/entrega.
+ */
+const CREAR_PEDIDO_TOOL: LLMTool = {
+  type: "function",
+  function: {
+    name: "crear_pedido",
+    description:
+      "Registra un pedido en el sistema de Mariscos Quiroa. Úsala SOLO cuando el cliente ya confirmó explícitamente que quiere hacer el pedido y diste (o tienes) su nombre y al menos un producto con cantidad. No la uses para cotizar o preguntar precios; solo para CONFIRMAR y registrar. Después de llamarla, confirma al cliente con el código del pedido.",
+    parameters: {
+      type: "object",
+      properties: {
+        customerName: { type: "string", description: "Nombre del cliente." },
+        channel: {
+          type: "string",
+          enum: ["MAYOREO", "MENUDEO"],
+          description: "MAYOREO si pide 5kg o más por producto o es negocio; si no, MENUDEO.",
+        },
+        items: {
+          type: "array",
+          description: "Productos del pedido.",
+          items: {
+            type: "object",
+            properties: {
+              productName: { type: "string", description: "Nombre del producto tal como aparece en el catálogo (ej. 'Camarón')." },
+              presentation: { type: "string", description: "Presentación elegida (ej. 'Pelado 16/20'). Opcional." },
+              quantity: { type: "number", description: "Cantidad numérica." },
+              unit: { type: "string", description: "Unidad: kg, docena, litro, pieza. Default kg." },
+            },
+            required: ["productName", "quantity"],
+          },
+        },
+        deliveryAddress: { type: "string", description: "Dirección de entrega, si aplica. Opcional (vacío = recoge en tienda)." },
+        deliveryCity: { type: "string", description: "Ciudad de entrega. Opcional." },
+        notes: { type: "string", description: "Notas del cliente: hora de recolección, indicaciones, etc. Opcional." },
+      },
+      required: ["customerName", "items"],
+    },
+  },
 };
 
 /**
@@ -238,11 +414,13 @@ export type ChatResponse = {
 export async function processCustomerMessage(
   message: string,
   history: Array<{ role: "user" | "assistant"; content: string }> = [],
-  channel: "web" | "whatsapp" | "messenger" | "instagram" = "web"
+  channel: "web" | "whatsapp" | "messenger" | "instagram" = "web",
+  ctx: { customerPhone?: string } = {}
 ): Promise<ChatResponse> {
   try {
-    // Intentar primero con DeepSeek (HTTP directo, compatible OpenAI)
     let content = "";
+    let orderCode: string | undefined;
+    let orderTotal: number | undefined;
     try {
       const businessContext = await buildBusinessContext();
       let systemPrompt = AGENT_SYSTEM_PROMPT.replace("{BUSINESS_CONTEXT}", businessContext);
@@ -266,15 +444,76 @@ CANAL ACTUAL: ${canalNombre}.
         { role: "user", content: message },
       ];
 
-      content = await callLLM(messages, { temperature: 0.7, maxTokens: 600 });
+      // Teléfono para asociar el pedido. En web puede no haber uno; usamos un
+      // placeholder para que el registro no falle (el cliente da su tel en el chat).
+      const customerPhone = ctx.customerPhone || "sin-telefono";
+      const source = channel;
+
+      // Primera llamada: el modelo decide si responde o invoca crear_pedido.
+      const first = await callLLM(messages, {
+        temperature: 0.7,
+        maxTokens: 600,
+        tools: [CREAR_PEDIDO_TOOL],
+      });
+
+      if (first.toolCalls && first.toolCalls.length > 0) {
+        // El modelo pidió crear el pedido. Ejecutamos la(s) tool(s) y hacemos
+        // una segunda llamada para que redacte la confirmación al cliente.
+        const toolMessages: LLMMessage[] = [
+          ...messages,
+          { role: "assistant", content: first.text || "", tool_calls: first.toolCalls },
+        ];
+
+        for (const tc of first.toolCalls) {
+          let parsedArgs: any = {};
+          try {
+            parsedArgs = JSON.parse(tc.function.arguments || "{}");
+          } catch {
+            parsedArgs = {};
+          }
+
+          if (tc.function.name === "crear_pedido") {
+            const exec = await ejecutarCrearPedido(parsedArgs, { customerPhone, source });
+            if (exec.ok) {
+              orderCode = exec.orderCode;
+              orderTotal = exec.total;
+            }
+            toolMessages.push({
+              role: "tool",
+              tool_call_id: tc.id,
+              name: "crear_pedido",
+              content: exec.result,
+            });
+          } else {
+            toolMessages.push({
+              role: "tool",
+              tool_call_id: tc.id,
+              name: tc.function.name,
+              content: "Herramienta no reconocida.",
+            });
+          }
+        }
+
+        // Segunda llamada: mensaje final para el cliente (sin tools para evitar loop).
+        const second = await callLLM(toolMessages, { temperature: 0.6, maxTokens: 500 });
+        content = second.text;
+
+        // Red de seguridad: si el modelo no redactó nada pero SÍ se creó el pedido,
+        // damos una confirmación mínima con el código real.
+        if (!content && orderCode) {
+          content = `¡Listo! Tu pedido quedó registrado con el código ${orderCode}. Nuestro equipo lo preparará. 🦐`;
+        }
+      } else {
+        content = first.text;
+      }
     } catch (llmError: any) {
-      // Si TODOS los proveedores (Gemini + DeepSeek) fallan, usar fallback inteligente
+      // Si TODOS los proveedores fallan, usar fallback inteligente (con historial).
       console.log("Ningún proveedor LLM disponible, usando fallback:", llmError?.message || "unknown");
-      content = await generateFallbackResponse(message);
+      content = await generateFallbackResponse(message, history);
     }
 
     if (!content) {
-      content = await generateFallbackResponse(message);
+      content = await generateFallbackResponse(message, history);
     }
 
     // Detectar si la respuesta sugiere escalar a humano
@@ -285,6 +524,9 @@ CANAL ACTUAL: ${canalNombre}.
     // Detectar acciones sugeridas (heurística simple).
     // Solo aplican al widget web; en WhatsApp no hay botones de carrito/WhatsApp.
     const actions: ChatAction[] = [];
+    if (orderCode) {
+      actions.push({ type: "order_created", code: orderCode, total: orderTotal ?? 0 });
+    }
     if (channel === "web") {
       if (/agrega.*carrito|agregar al carrito|carrito de cotización/i.test(content)) {
         actions.push({ type: "open_cart" });
@@ -301,6 +543,7 @@ CANAL ACTUAL: ${canalNombre}.
       content,
       actions: actions.length > 0 ? actions : undefined,
       needsHuman,
+      orderCode,
     };
   } catch (error: any) {
     console.error("Error en agente IA:", error);
@@ -322,7 +565,21 @@ CANAL ACTUAL: ${canalNombre}.
  * Genera una respuesta inteligente basada en el catálogo real.
  * Se usa cuando el SDK de Z.ai no está disponible (ej. Vercel sin API key).
  */
-async function generateFallbackResponse(message: string): Promise<string> {
+async function generateFallbackResponse(
+  message: string,
+  history: Array<{ role: "user" | "assistant"; content: string }> = []
+): Promise<string> {
+  // El fallback es por reglas (sin LLM), así que no puede "recordar" como el
+  // modelo. Pero si el cliente parece estar confirmando un pedido (mensaje muy
+  // corto tipo "sí"/"confírmalo") y venimos de una conversación, evitamos la
+  // respuesta genérica de saludo y lo derivamos a una persona, en vez de
+  // fingir que olvidamos todo.
+  const confirmacion = /^(s[ií]|si|dale|ok|okay|listo|confirm|conf[ií]rma|correcto|as[ií] es|va|ese|adelante)/i.test(
+    message.trim()
+  );
+  if (confirmacion && history.length > 0) {
+    return "¡Perfecto! Estoy teniendo un problemita técnico para registrar el pedido en este instante. En un momento te atiende una persona del equipo para dejarlo confirmado y no hacerte esperar. 🦐";
+  }
   try {
     const [config, products, coverage, hours] = await Promise.all([
       db.siteConfig.findUnique({ where: { id: "singleton" } }),
@@ -455,7 +712,7 @@ Importante: usa español mexicano. Nunca uses voseo (no digas "tenés", "podés"
 
 No uses emojis. No uses markdown. Texto plano, conversacional.`;
 
-    const content = await callLLM(
+    const { text } = await callLLM(
       [
         { role: "system", content: "Eres un asistente de gestión de negocios conciso y accionable. Hablas español mexicano (sin voseo)." },
         { role: "user", content: prompt },
@@ -463,7 +720,7 @@ No uses emojis. No uses markdown. Texto plano, conversacional.`;
       { temperature: 0.5, maxTokens: 300 }
     );
 
-    return content || generateFallbackAdminSummary(context);
+    return text || generateFallbackAdminSummary(context);
   } catch (e: any) {
     console.error("Error en resumen admin:", e);
     return generateFallbackAdminSummary(context);

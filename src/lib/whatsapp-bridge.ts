@@ -137,7 +137,9 @@ export async function handleIncomingMessage(
 
     // 9. Invocar al agente IA (mismo que usa el ChatWidget del sitio),
     //    indicando que el canal es WhatsApp para que no derive "escríbenos por WhatsApp".
-    const iaResponse = await processCustomerMessage(normalizedText, history, "whatsapp");
+    const iaResponse = await processCustomerMessage(normalizedText, history, "whatsapp", {
+      customerPhone: incoming.from,
+    });
 
     // 10. Enviar respuesta de vuelta
     const sendResult = await sendTextMessage({
