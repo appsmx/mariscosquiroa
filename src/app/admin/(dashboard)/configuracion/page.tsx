@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Save, Loader2, Building2, Phone, Image as ImageIcon } from "lucide-react";
 import { toast } from "sonner";
+import { ChangePasswordCard } from "./ChangePasswordCard";
 
 type Config = {
   brandName: string;
@@ -250,6 +251,13 @@ export default function AdminConfig() {
             </>
           )}
         </Button>
+      </div>
+
+      {/* Seguridad — cambio de contraseña (independiente del guardado de config) */}
+      <div className="border-t border-border pt-6">
+        <div className="max-w-xl">
+          <ChangePasswordCard />
+        </div>
       </div>
     </div>
   );
