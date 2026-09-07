@@ -4,6 +4,7 @@
  * Ejecutar con: bun run scripts/reseed.ts
  */
 import bcrypt from "bcryptjs";
+import crypto from "crypto";
 import { db } from "../src/lib/db";
 
 async function main() {
@@ -32,7 +33,11 @@ async function main() {
   console.log("🌱 Iniciando reseed con datos de Rosarito, Baja California...");
 
   // 1. Usuario admin
-  const adminPassword = await bcrypt.hash("admin123", 10);
+  // La contraseña se toma de ADMIN_SEED_PASSWORD; si no está definida se genera
+  // una aleatoria (evita plantar una contraseña débil conocida como "admin123").
+  const seedPassword =
+    process.env.ADMIN_SEED_PASSWORD || crypto.randomBytes(12).toString("base64url");
+  const adminPassword = await bcrypt.hash(seedPassword, 10);
   await db.user.create({
     data: {
       email: "admin@mariscosquiroa.com",
@@ -41,7 +46,10 @@ async function main() {
       role: "ADMIN",
     },
   });
-  console.log("  ✓ Usuario admin: admin@mariscosquiroa.com / admin123");
+  console.log("  ✓ Usuario admin: admin@mariscosquiroa.com");
+  if (!process.env.ADMIN_SEED_PASSWORD) {
+    console.log(`  ⚠ Contraseña admin generada (guárdala): ${seedPassword}`);
+  }
 
   // 2. Configuración del sitio — Rosarito, Baja California
   await db.siteConfig.create({
@@ -327,7 +335,7 @@ async function main() {
 
   console.log("\n✅ Reseed completado con éxito.");
   console.log("   Ubicación: Rosarito, Baja California");
-  console.log("   Login admin: admin@mariscosquiroa.com / admin123");
+  console.log("   Login admin: admin@mariscosquiroa.com");
 }
 
 main()

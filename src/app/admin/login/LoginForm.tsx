@@ -106,12 +106,6 @@ export default function LoginForm() {
         )}
       </Button>
 
-      {/* Credenciales demo */}
-      <div className="mt-4 rounded-lg bg-ocean-50 border border-ocean-100 p-3 text-xs text-ocean-800">
-        <p className="font-semibold mb-1">Credenciales demo:</p>
-        <p>Email: <code className="bg-white px-1.5 py-0.5 rounded">admin@mariscosquiroa.com</code></p>
-        <p>Contraseña: <code className="bg-white px-1.5 py-0.5 rounded">admin123</code></p>
-      </div>
     </form>
   );
 }
