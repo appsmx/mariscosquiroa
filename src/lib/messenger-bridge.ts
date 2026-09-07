@@ -55,7 +55,7 @@ export async function handleIncomingMessengerMessage(
     });
 
     // 2. Guardar mensaje entrante
-    await db.whatsappMessage.create({
+    const inboundMessage = await db.whatsappMessage.create({
       data: {
         conversationId: conversation.id,
         direction: "INBOUND",
@@ -65,9 +65,14 @@ export async function handleIncomingMessengerMessage(
       },
     });
 
-    // 3. Historial (últimos 10 mensajes de texto)
+    // 3. Historial (últimos 10 mensajes de texto). Excluimos el mensaje entrante
+    //    recién guardado: processCustomerMessage lo vuelve a agregar como último
+    //    "user"; si no, el modelo lo vería duplicado y perdería contexto.
     const historyRows = await db.whatsappMessage.findMany({
-      where: { conversationId: conversation.id },
+      where: {
+        conversationId: conversation.id,
+        id: { not: inboundMessage.id },
+      },
       orderBy: { createdAt: "desc" },
       take: 10,
     });

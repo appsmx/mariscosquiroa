@@ -74,7 +74,7 @@ export async function handleIncomingMessage(
 
     // 4. Persistir mensaje entrante
     const normalizedText = normalizeIncomingText(incoming);
-    await db.whatsappMessage.create({
+    const inboundMessage = await db.whatsappMessage.create({
       data: {
         conversationId: conversation.id,
         direction: "INBOUND",
@@ -121,9 +121,16 @@ export async function handleIncomingMessage(
       return { ok: true, replySent: false };
     }
 
-    // 8. Cargar historial (últimos 20 mensajes) para el agente
+    // 8. Cargar historial (últimos 20 mensajes) para el agente.
+    //    El mensaje entrante actual YA se persistió en el paso 4, así que
+    //    excluimos ese registro (por id): processCustomerMessage vuelve a
+    //    añadir el mensaje actual como último "user". Si no lo excluyéramos,
+    //    el modelo lo vería DUPLICADO y perdería contexto.
     const historyRows = await db.whatsappMessage.findMany({
-      where: { conversationId: conversation.id },
+      where: {
+        conversationId: conversation.id,
+        id: { not: inboundMessage.id },
+      },
       orderBy: { createdAt: "asc" },
       take: 20,
     });

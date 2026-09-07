@@ -67,7 +67,9 @@ async function callLLM(
   const history = userIsLast ? conversation.filter((m) => m !== lastUser) : conversation;
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 20_000);
+  // 28s: la cascada de proveedores de LOGAN puede reintentar varios modelos.
+  // El webhook tiene maxDuration=60, así que hay margen para 2 llamadas.
+  const timeout = setTimeout(() => controller.abort(), 28_000);
 
   try {
     const headers: Record<string, string> = { "Content-Type": "application/json" };
@@ -82,7 +84,12 @@ async function callLLM(
         project: "mariscosquiroa",
         task: "assistant",
         systemPrompt: systemMsg?.content || "",
-        userMessage: userIsLast ? lastUser?.content || "" : "",
+        // El proxy de LOGAN exige userMessage no vacío. En la 2ª llamada (tras
+        // ejecutar una tool) el último turno es la respuesta de la tool, que va
+        // en history; enviamos una instrucción mínima para no romper el contrato.
+        userMessage: userIsLast
+          ? lastUser?.content || ""
+          : "Redacta la respuesta final para el cliente con base en el resultado de la herramienta.",
         history,
         temperature: opts.temperature ?? 0.7,
         maxTokens: opts.maxTokens ?? 600,
@@ -616,14 +623,33 @@ async function generateFallbackResponse(
   message: string,
   history: Array<{ role: "user" | "assistant"; content: string }> = []
 ): Promise<string> {
-  // El fallback es por reglas (sin LLM), así que no puede "recordar" como el
-  // modelo. Pero si el cliente parece estar confirmando un pedido (mensaje muy
-  // corto tipo "sí"/"confírmalo") y venimos de una conversación, evitamos la
-  // respuesta genérica de saludo y lo derivamos a una persona, en vez de
-  // fingir que olvidamos todo.
+  // El fallback es por reglas (sin LLM), así que no puede "recordar" ni tomar
+  // pedidos como el modelo. Para NO perder un pedido en curso cuando el LLM
+  // falla, detectamos si la conversación ya venía cerrando un pedido y, en ese
+  // caso, derivamos a una persona en vez de responder un saludo/menú genérico
+  // (que haría "olvidar" todo lo dicho).
   const confirmacion = /^(s[ií]|si|dale|ok|okay|listo|confirm|conf[ií]rma|correcto|as[ií] es|va|ese|adelante)/i.test(
     message.trim()
   );
+
+  // ¿Hay un pedido en curso? Señales en los últimos turnos del bot: pidió el
+  // nombre, mencionó cantidades/precios, o dijo "tu pedido/cotización".
+  const recentBot = history
+    .filter((m) => m.role === "assistant")
+    .slice(-3)
+    .map((m) => m.content.toLowerCase())
+    .join(" ");
+  const pedidoEnCurso =
+    /tu nombre|me pasas tu nombre|confirmas tu nombre|para dejar tu pedido|tu pedido|cotizaci[oó]n|\$\s?\d|\d+\s?kg/.test(
+      recentBot
+    );
+  // El mensaje del cliente parece un dato para cerrar el pedido: una confirmación,
+  // o un mensaje corto (probablemente su nombre) tras un pedido en curso.
+  const pareceCierre = confirmacion || message.trim().split(/\s+/).length <= 3;
+
+  if (history.length > 0 && pedidoEnCurso && pareceCierre) {
+    return "¡Gracias! 🦐 Tengo un problemita técnico para registrar tu pedido en este instante, pero no lo pierdo: en un momento te atiende una persona del equipo para dejarlo confirmado. Si prefieres, escríbenos al (663) 699-9689.";
+  }
   if (confirmacion && history.length > 0) {
     return "¡Perfecto! Estoy teniendo un problemita técnico para registrar el pedido en este instante. En un momento te atiende una persona del equipo para dejarlo confirmado y no hacerte esperar. 🦐";
   }
