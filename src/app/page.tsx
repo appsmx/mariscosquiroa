@@ -16,22 +16,35 @@ import { WhatsAppFloat } from "@/components/site/WhatsAppFloat";
 import { CartButton } from "@/components/site/CartButton";
 import { CartDrawer } from "@/components/site/CartDrawer";
 import { ChatWidget } from "@/components/site/ChatWidget";
+import { OceanCanvas } from "@/components/site/OceanCanvas";
+import { OceanPreloader } from "@/components/site/OceanPreloader";
+import { OceanCursor } from "@/components/site/OceanCursor";
 
 export default function Home() {
   return (
-    <div className="flex min-h-screen flex-col bg-background">
+    <div className="relative flex min-h-screen flex-col">
+      {/* Pantalla de carga "Sumergiéndote…" */}
+      <OceanPreloader />
+      {/* Cursor personalizado "gota del océano" (solo puntero fino) */}
+      <OceanCursor />
+      {/* Fondo interactivo del océano (canvas fijo detrás de todo) */}
+      <OceanCanvas />
       <Navbar />
-      <main className="flex-1">
+      <main className="relative z-10 flex-1">
+        {/* Hero inmersivo: transparente para dejar ver el canvas del océano */}
         <Hero />
-        <Differentiators />
-        <ProductCatalog />
-        <SalesChannels />
-        <About />
-        <Coverage />
-        <Testimonials />
-        <BrandEcosystem />
-        <Faq />
-        <Location />
+        {/* El resto del sitio conserva su fondo claro y tapa el canvas */}
+        <div className="relative z-10 bg-background">
+          <Differentiators />
+          <ProductCatalog />
+          <SalesChannels />
+          <About />
+          <Coverage />
+          <Testimonials />
+          <BrandEcosystem />
+          <Faq />
+          <Location />
+        </div>
       </main>
       <Footer />
       <WhatsAppFloat />
