@@ -1,8 +1,6 @@
 "use client";
 
 import { MapPin, Phone, Mail, Clock, MessageCircle, Navigation } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { siteConfig as fallbackConfig } from "@/lib/site-data";
 import { useSiteConfig } from "@/hooks/use-site-config";
 import { useI18n } from "@/i18n/I18nProvider";
@@ -36,32 +34,28 @@ export function Location() {
     time === "Cerrado" ? t.location.closed : time;
 
   return (
-    <section id="ubicacion" className="relative py-20 sm:py-28 bg-muted/30">
+    <section id="ubicacion" className="relative py-20 text-foam sm:py-28">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-12 items-stretch">
+        <div className="grid grid-cols-1 items-stretch gap-10 lg:grid-cols-2 lg:gap-12">
           {/* Información de contacto */}
           <div className="flex flex-col justify-center">
-            <span className="inline-flex items-center gap-2 rounded-full bg-amber-brand-50 border border-amber-brand-200 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-amber-brand-700 w-fit">
-              {t.location.badge}
-            </span>
-            <h2 className="mt-4 font-display text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight text-foreground">
-              {t.location.title}
-            </h2>
-            <p className="mt-4 text-base sm:text-lg text-muted-foreground leading-relaxed">
+            <span className="oi-eyebrow w-fit">{t.location.badge}</span>
+            <h2 className="oi-section-title mt-4">{t.location.title}</h2>
+            <p className="oi-lead mt-4">
               {locale === "es"
                 ? "Pasa a comprar directo al mostrador, llámanos por teléfono o escríbenos por WhatsApp. La atención es personalizada y siempre vas a hablar con alguien del equipo, nunca con un menú automático."
                 : "Stop by the counter to buy directly, call us by phone or message us on WhatsApp. Attention is personalized and you always talk to someone from the team, never an automated menu."}
             </p>
 
-            <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <Card className="p-5 border-ocean-100">
+            <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="oi-glass rounded-xl p-5">
                 <div className="flex items-center gap-3">
-                  <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-ocean-100 text-ocean-700">
+                  <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-teal-light/15 text-teal-light">
                     <MapPin className="h-5 w-5" />
                   </span>
-                  <h3 className="font-semibold text-foreground">{t.location.addressLabel}</h3>
+                  <h3 className="font-semibold text-foam">{t.location.addressLabel}</h3>
                 </div>
-                <p className="mt-3 text-sm text-muted-foreground leading-relaxed">
+                <p className="mt-3 text-sm leading-relaxed text-slate-400">
                   {contact.address.street}
                   <br />
                   {contact.address.city}, {contact.address.state}
@@ -72,79 +66,75 @@ export function Location() {
                   href={`https://maps.google.com/?q=${mapQuery}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-ocean-700 hover:text-ocean-800"
+                  className="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-teal-light hover:text-amber-light"
                 >
                   <Navigation className="h-3.5 w-3.5" />
                   {t.location.getDirections}
                 </a>
-              </Card>
+              </div>
 
-              <Card className="p-5 border-ocean-100">
+              <div className="oi-glass rounded-xl p-5">
                 <div className="flex items-center gap-3">
-                  <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-amber-brand-100 text-amber-brand-700">
+                  <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-amber-light/15 text-amber-light">
                     <Clock className="h-5 w-5" />
                   </span>
-                  <h3 className="font-semibold text-foreground">{t.location.hoursLabel}</h3>
+                  <h3 className="font-semibold text-foam">{t.location.hoursLabel}</h3>
                 </div>
                 <ul className="mt-3 space-y-1.5">
                   {contact.hours.map((h) => (
-                    <li key={h.day} className="text-sm text-muted-foreground">
-                      <span className="font-medium text-foreground/80">{dayLabel(h.day)}:</span>{" "}
+                    <li key={h.day} className="text-sm text-slate-400">
+                      <span className="font-medium text-foam/80">{dayLabel(h.day)}:</span>{" "}
                       {timeLabel(h.time)}
                     </li>
                   ))}
                 </ul>
-              </Card>
+              </div>
 
-              <Card className="p-5 border-ocean-100">
+              <div className="oi-glass rounded-xl p-5">
                 <div className="flex items-center gap-3">
-                  <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-ocean-100 text-ocean-700">
+                  <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-teal-light/15 text-teal-light">
                     <Phone className="h-5 w-5" />
                   </span>
-                  <h3 className="font-semibold text-foreground">{t.location.phoneLabel}</h3>
+                  <h3 className="font-semibold text-foam">{t.location.phoneLabel}</h3>
                 </div>
                 <a
                   href={`tel:${contact.phone}`}
-                  className="mt-3 block text-sm font-medium text-ocean-700 hover:text-ocean-800"
+                  className="mt-3 block text-sm font-medium text-teal-light hover:text-amber-light"
                 >
                   {contact.phoneDisplay}
                 </a>
-              </Card>
+              </div>
 
-              <Card className="p-5 border-ocean-100">
+              <div className="oi-glass rounded-xl p-5">
                 <div className="flex items-center gap-3">
-                  <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-amber-brand-100 text-amber-brand-700">
+                  <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-amber-light/15 text-amber-light">
                     <Mail className="h-5 w-5" />
                   </span>
-                  <h3 className="font-semibold text-foreground">{t.location.emailLabel}</h3>
+                  <h3 className="font-semibold text-foam">{t.location.emailLabel}</h3>
                 </div>
                 <a
                   href={`mailto:${contact.email}`}
-                  className="mt-3 block text-sm font-medium text-ocean-700 hover:text-ocean-800 break-all"
+                  className="mt-3 block break-all text-sm font-medium text-teal-light hover:text-amber-light"
                 >
                   {contact.email}
                 </a>
-              </Card>
+              </div>
             </div>
 
-            <div className="mt-6 flex flex-col sm:flex-row gap-3">
-              <Button asChild size="lg" className="bg-amber-brand-500 hover:bg-amber-brand-600 text-white h-12 px-6">
-                <a href={waLink} target="_blank" rel="noopener noreferrer">
-                  <MessageCircle className="h-5 w-5" />
-                  {locale === "es" ? "Escribir por WhatsApp" : "Message on WhatsApp"}
-                </a>
-              </Button>
-              <Button asChild size="lg" variant="outline" className="h-12 px-6 border-ocean-200 text-ocean-700 hover:bg-ocean-50">
-                <a href={`tel:${contact.phone}`}>
-                  <Phone className="h-5 w-5" />
-                  {locale === "es" ? "Llamar ahora" : "Call now"}
-                </a>
-              </Button>
+            <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+              <a href={waLink} target="_blank" rel="noopener noreferrer" className="oi-btn-gold justify-center">
+                <MessageCircle className="h-5 w-5" />
+                {locale === "es" ? "Escribir por WhatsApp" : "Message on WhatsApp"}
+              </a>
+              <a href={`tel:${contact.phone}`} className="oi-btn-glass justify-center">
+                <Phone className="h-5 w-5" />
+                {locale === "es" ? "Llamar ahora" : "Call now"}
+              </a>
             </div>
           </div>
 
           {/* Mapa */}
-          <div className="relative min-h-[400px] lg:min-h-full rounded-3xl overflow-hidden shadow-xl border border-border">
+          <div className="relative min-h-[400px] overflow-hidden rounded-3xl border border-white/10 shadow-xl lg:min-h-full">
             <iframe
               title="Ubicación de Mariscos Quiroa"
               src={`https://www.openstreetmap.org/export/embed.html?bbox=-117.10%2C32.25%2C-116.95%2C32.32&layer=mapnik&marker=32.284%2C-117.032`}
@@ -152,17 +142,17 @@ export function Location() {
               loading="lazy"
               referrerPolicy="no-referrer-when-downgrade"
             />
-            <div className="absolute bottom-4 left-4 right-4 rounded-xl bg-card/95 backdrop-blur-md border border-border shadow-lg p-4 flex items-center gap-3">
-              <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-ocean-600 text-white">
+            <div className="oi-glass-deep absolute bottom-4 left-4 right-4 flex items-center gap-3 rounded-xl p-4 shadow-lg">
+              <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-teal-light to-teal-deep text-abyss">
                 <MapPin className="h-5 w-5" />
               </span>
               <div className="min-w-0">
-                <p className="font-semibold text-foreground text-sm leading-tight">
+                <p className="text-sm font-semibold leading-tight text-foam">
                   {locale === "es"
                     ? "Mariscos Quiroa — Mostrador & Distribuidora"
                     : "Mariscos Quiroa — Counter & Distribution"}
                 </p>
-                <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                <p className="mt-0.5 truncate text-xs text-slate-400">
                   {contact.address.street}, {contact.address.city}
                 </p>
               </div>

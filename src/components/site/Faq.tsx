@@ -17,18 +17,12 @@ export function Faq() {
     ? apiFaqs.map((f: any) => ({ question: f.question, answer: f.answer }))
     : fallbackFaqs;
   return (
-    <section className="relative py-20 sm:py-28 bg-background">
+    <section className="relative py-20 text-foam sm:py-28">
       <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
         <div className="text-center">
-          <span className="inline-flex items-center gap-2 rounded-full bg-ocean-50 border border-ocean-100 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-ocean-700">
-            {t.faq.badge}
-          </span>
-          <h2 className="mt-4 font-display text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight text-foreground">
-            {t.faq.title}
-          </h2>
-          <p className="mt-4 text-base sm:text-lg text-muted-foreground leading-relaxed">
-            {t.faq.subtitle}
-          </p>
+          <span className="oi-eyebrow justify-center">{t.faq.badge}</span>
+          <h2 className="oi-section-title mt-4">{t.faq.title}</h2>
+          <p className="oi-lead mx-auto mt-4 max-w-2xl">{t.faq.subtitle}</p>
         </div>
 
         <Accordion type="single" collapsible className="mt-10 space-y-3">
@@ -36,12 +30,12 @@ export function Faq() {
             <AccordionItem
               key={i}
               value={`item-${i}`}
-              className="rounded-xl border border-border bg-card px-5 shadow-sm data-[state=open]:shadow-md transition-shadow"
+              className="oi-glass rounded-xl border-white/10 px-5 transition-colors data-[state=open]:border-amber-light/30"
             >
-              <AccordionTrigger className="text-left font-semibold text-foreground hover:no-underline py-5 text-base">
+              <AccordionTrigger className="py-5 text-left text-base font-semibold text-foam hover:no-underline">
                 {faq.question}
               </AccordionTrigger>
-              <AccordionContent className="text-muted-foreground leading-relaxed text-sm sm:text-base pb-5">
+              <AccordionContent className="pb-5 text-sm leading-relaxed text-slate-300 sm:text-base">
                 {faq.answer}
               </AccordionContent>
             </AccordionItem>
