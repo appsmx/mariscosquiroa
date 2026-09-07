@@ -4,13 +4,18 @@
  * Ejecutar con: bun run db:seed
  */
 import bcrypt from "bcryptjs";
+import crypto from "crypto";
 import { db } from "../src/lib/db";
 
 async function main() {
   console.log("🌱 Iniciando seed...");
 
   // 1. Usuario admin por defecto
-  const adminPassword = await bcrypt.hash("admin123", 10);
+  // La contraseña se toma de ADMIN_SEED_PASSWORD; si no está definida se genera
+  // una aleatoria (evita plantar una contraseña débil conocida como "admin123").
+  const seedPassword =
+    process.env.ADMIN_SEED_PASSWORD || crypto.randomBytes(12).toString("base64url");
+  const adminPassword = await bcrypt.hash(seedPassword, 10);
   const admin = await db.user.upsert({
     where: { email: "admin@mariscosquiroa.com" },
     update: {},
@@ -21,7 +26,10 @@ async function main() {
       role: "ADMIN",
     },
   });
-  console.log(`  ✓ Usuario admin: ${admin.email} (contraseña: admin123)`);
+  console.log(`  ✓ Usuario admin: ${admin.email}`);
+  if (!process.env.ADMIN_SEED_PASSWORD) {
+    console.log(`  ⚠ Contraseña admin generada (guárdala): ${seedPassword}`);
+  }
 
   // 2. Configuración del sitio
   await db.siteConfig.upsert({
@@ -308,7 +316,7 @@ async function main() {
   console.log(`  ✓ ${zones.length} zonas de cobertura`);
 
   console.log("\n✅ Seed completado con éxito.");
-  console.log("   Login admin: admin@mariscosquiroa.com / admin123");
+  console.log("   Login admin: admin@mariscosquiroa.com");
 }
 
 main()
