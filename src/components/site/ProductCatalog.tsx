@@ -1,26 +1,13 @@
 "use client";
 
-import { useState } from "react";
-import { Card, CardContent, CardFooter } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { useState, useRef } from "react";
 import {
   MessageCircle,
   Snowflake,
   Sparkles,
   Clock,
-  ChevronRight,
   Loader2,
   Plus,
-  ShoppingCart,
   Check,
 } from "lucide-react";
 import { products as fallbackProducts, siteConfig as fallbackConfig } from "@/lib/site-data";
@@ -34,18 +21,10 @@ import { cn } from "@/lib/utils";
 
 const categoryKeys = ["todos", "marisco", "pescado", "especialidad"] as const;
 
-const tagClassNames: Record<string, string> = {
-  mayoreo: "bg-ocean-100 text-ocean-700 border-ocean-200",
-  menudeo: "bg-amber-brand-100 text-amber-brand-700 border-amber-brand-200",
-  fresco: "bg-emerald-100 text-emerald-700 border-emerald-200",
-  congelado: "bg-sky-100 text-sky-700 border-sky-200",
-  premium: "bg-rose-100 text-rose-700 border-rose-200",
-};
-
 const availabilityIcons: Record<string, { icon: typeof Clock; color: string }> = {
-  Diaria: { icon: Clock, color: "text-emerald-600" },
-  Temporada: { icon: Sparkles, color: "text-amber-600" },
-  "Bajo pedido": { icon: Snowflake, color: "text-sky-600" },
+  Diaria: { icon: Clock, color: "text-emerald-300" },
+  Temporada: { icon: Sparkles, color: "text-amber-300" },
+  "Bajo pedido": { icon: Snowflake, color: "text-sky-300" },
 };
 
 const mxn = (n: number) =>
@@ -53,17 +32,8 @@ const mxn = (n: number) =>
 
 function ProductCard({ product, config }: { product: Product; config: any }) {
   const { t, locale } = useI18n();
-
-  const tagLabel = (tag: string): string => {
-    switch (tag) {
-      case "mayoreo": return t.catalog.mayoreo;
-      case "menudeo": return t.catalog.menudeo;
-      case "fresco": return locale === "es" ? "Fresco" : "Fresh";
-      case "congelado": return locale === "es" ? "Congelado" : "Frozen";
-      case "premium": return "Premium";
-      default: return tag;
-    }
-  };
+  const cardRef = useRef<HTMLElement | null>(null);
+  const tiltRef = useRef({ rx: 0, ry: 0, tx: 0, ty: 0, raf: 0 });
 
   const availLabel = (availability: string): string => {
     if (availability === "Diaria") return t.catalog.daily;
@@ -77,30 +47,24 @@ function ProductCard({ product, config }: { product: Product; config: any }) {
       ? `Hola ${config.brand.name}, me interesa cotizar ${product.name}. ¿Me pueden dar precio y disponibilidad?`
       : `Hi ${config.brand.name}, I'm interested in a quote for ${product.name}. Can you give me price and availability?`
   )}`;
-  const avail = availabilityIcons[product.availability];
+  const avail = availabilityIcons[product.availability] || availabilityIcons["Diaria"];
   const AvailIcon = avail.icon;
   const { channel, add } = useCart();
   const [selectedPres, setSelectedPres] = useState<string>(product.presentation[0] || "");
   const [quantity, setQuantity] = useState<number>(1);
   const [added, setAdded] = useState(false);
 
-  // Buscar precio para la presentación seleccionada según el canal
-  // Normalizamos channel a minúsculas para comparar con la API
   const channelLower = (channel || "menudeo").toLowerCase();
-  const selectedPrice = product.prices?.find(
-    (p) => {
-      const priceChannel = (p.channel || "").toLowerCase();
-      return priceChannel === channelLower &&
-             (!p.presentation || p.presentation === selectedPres);
-    }
-  );
+  const selectedPrice = product.prices?.find((p) => {
+    const priceChannel = (p.channel || "").toLowerCase();
+    return priceChannel === channelLower && (!p.presentation || p.presentation === selectedPres);
+  });
   const unitPrice = selectedPrice?.pricePerKg ?? selectedPrice?.priceUnit ?? 0;
   const unit = selectedPrice?.unit || "kg";
   const minQty = selectedPrice?.minQuantity ?? 1;
 
   const handleAdd = () => {
     if (unitPrice <= 0) {
-      // Sin precio configurado → abrir WhatsApp directo
       window.open(waLink, "_blank");
       return;
     }
@@ -122,105 +86,147 @@ function ProductCard({ product, config }: { product: Product; config: any }) {
     setTimeout(() => setAdded(false), 1500);
   };
 
+  // --- Tilt 3D + resplandor que sigue al cursor ---
+  const handlePointerMove = (e: React.PointerEvent<HTMLElement>) => {
+    if (e.pointerType === "touch") return;
+    const card = cardRef.current;
+    if (!card) return;
+    const r = card.getBoundingClientRect();
+    const px = (e.clientX - r.left) / r.width;
+    const py = (e.clientY - r.top) / r.height;
+    const st = tiltRef.current;
+    st.ty = (px - 0.5) * 12;
+    st.tx = (0.5 - py) * 10;
+    card.style.setProperty("--mx", (px * 100).toFixed(1) + "%");
+    card.style.setProperty("--my", (py * 100).toFixed(1) + "%");
+    if (!st.raf) {
+      const animate = () => {
+        st.rx += (st.tx - st.rx) * 0.15;
+        st.ry += (st.ty - st.ry) * 0.15;
+        if (card) {
+          card.style.transform = `perspective(1000px) rotateX(${st.rx.toFixed(2)}deg) rotateY(${st.ry.toFixed(2)}deg)`;
+        }
+        if (Math.abs(st.tx - st.rx) > 0.05 || Math.abs(st.ty - st.ry) > 0.05) {
+          st.raf = requestAnimationFrame(animate);
+        } else {
+          st.raf = 0;
+        }
+      };
+      st.raf = requestAnimationFrame(animate);
+    }
+  };
+
+  const handlePointerLeave = () => {
+    const card = cardRef.current;
+    const st = tiltRef.current;
+    st.tx = 0;
+    st.ty = 0;
+    if (card && !st.raf) {
+      const animate = () => {
+        st.rx += (0 - st.rx) * 0.15;
+        st.ry += (0 - st.ry) * 0.15;
+        card.style.transform = `perspective(1000px) rotateX(${st.rx.toFixed(2)}deg) rotateY(${st.ry.toFixed(2)}deg)`;
+        if (Math.abs(st.rx) > 0.05 || Math.abs(st.ry) > 0.05) {
+          st.raf = requestAnimationFrame(animate);
+        } else {
+          st.raf = 0;
+          card.style.transform = "";
+        }
+      };
+      st.raf = requestAnimationFrame(animate);
+    }
+  };
+
   return (
-    <Card className="group relative overflow-hidden border-border/60 bg-card hover:shadow-xl hover:shadow-ocean-900/10 transition-all duration-300 hover:-translate-y-1 flex flex-col">
+    <article
+      ref={cardRef}
+      className="oi-product-card flex flex-col"
+      data-hover
+      onPointerMove={handlePointerMove}
+      onPointerLeave={handlePointerLeave}
+    >
       {/* Imagen */}
-      <div className="relative aspect-[4/3] overflow-hidden bg-ocean-50">
+      <div className="oi-card-visual aspect-[4/3]">
         <img
           src={product.image}
           alt={product.name}
-          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+          className="h-full w-full object-cover transition-transform duration-500"
           loading="lazy"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-ocean-950/70 via-transparent to-transparent" />
-
-        <div className="absolute top-3 left-3">
-          <div className="inline-flex items-center gap-1.5 rounded-full bg-white/95 backdrop-blur-sm px-3 py-1 text-xs font-semibold shadow-md">
-            <AvailIcon className={cn("h-3.5 w-3.5", avail.color)} />
-            <span className="text-foreground">{availLabel(product.availability)}</span>
-          </div>
-        </div>
-
-        <div className="absolute top-3 right-3">
-          <Badge variant="secondary" className="bg-ocean-600/90 text-white border-0 backdrop-blur-sm capitalize text-[10px] uppercase tracking-wide">
-            {product.category}
-          </Badge>
-        </div>
-
+        <div className="absolute inset-0 bg-gradient-to-t from-abyss/90 via-abyss/20 to-transparent" />
+        <span className="oi-card-badge">
+          <AvailIcon className={cn("h-3 w-3", avail.color)} />
+          {availLabel(product.availability)}
+        </span>
+        <span className="oi-card-cat capitalize">{product.category}</span>
         <div className="absolute bottom-0 left-0 right-0 p-4">
-          <h3 className="font-display text-2xl font-bold text-white leading-tight drop-shadow-md">
-            {product.name}
-          </h3>
-          {product.scientific && (
-            <p className="text-xs text-white/80 italic mt-0.5">{product.scientific}</p>
-          )}
+          <h3 className="oi-card-title drop-shadow-md">{product.name}</h3>
+          {product.scientific && <p className="oi-card-sci mt-0.5">{product.scientific}</p>}
         </div>
+        <div className="oi-card-shine" />
       </div>
 
-      <CardContent className="p-5 flex-1">
-        <p className="text-sm text-muted-foreground leading-relaxed line-clamp-3">
-          {product.description}
-        </p>
+      {/* Cuerpo */}
+      <div className="relative z-[4] flex flex-1 flex-col gap-3 p-5">
+        <p className="oi-card-desc line-clamp-3">{product.description}</p>
 
-        {/* Precio visible */}
+        {/* Precio */}
         {unitPrice > 0 ? (
-          <div className="mt-4 rounded-lg bg-ocean-50 border border-ocean-100 p-3">
+          <div className="oi-price-box">
             <div className="flex items-baseline justify-between">
-              <span className="text-[11px] font-semibold uppercase tracking-wide text-ocean-700">
+              <span className="oi-price-label">
                 {locale === "es"
                   ? `Precio ${channelLower === "mayoreo" ? "mayoreo" : "menudeo"}`
                   : `${channelLower === "mayoreo" ? "Wholesale" : "Retail"} price`}
               </span>
-              <span className="font-display text-xl font-bold text-foreground">
+              <span className="oi-price-num text-xl">
                 {mxn(unitPrice)}
-                <span className="text-xs font-normal text-muted-foreground">/{unit}</span>
+                <span className="text-xs font-normal text-slate-400">/{unit}</span>
               </span>
             </div>
             {minQty > 1 && (
-              <p className="text-[10px] text-muted-foreground mt-1">
+              <p className="mt-1 text-[10px] text-slate-400">
                 {locale === "es" ? `Mínimo: ${minQty} ${unit}` : `Min: ${minQty} ${unit}`}
               </p>
             )}
           </div>
         ) : (
-          <div className="mt-4 rounded-lg bg-amber-brand-50 border border-amber-brand-200 p-3">
-            <p className="text-xs text-amber-brand-700 font-medium">
-              {locale === "es"
-                ? "Precio bajo cotización · consulta por WhatsApp"
-                : "Price on request · ask on WhatsApp"}
-            </p>
+          <div className="oi-price-quote">
+            {locale === "es"
+              ? "Precio bajo cotización · consulta por WhatsApp"
+              : "Price on request · ask on WhatsApp"}
           </div>
         )}
 
-        {/* Selector de presentación */}
+        {/* Presentación */}
         {product.presentation.length > 0 && (
-          <div className="mt-3">
-            <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1.5 block">
+          <div>
+            <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wide text-slate-400">
               {locale === "es" ? "Presentación" : "Presentation"}
             </label>
-            <Select value={selectedPres} onValueChange={setSelectedPres}>
-              <SelectTrigger className="h-9 text-sm">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {product.presentation.map((p) => (
-                  <SelectItem key={p} value={p}>{p}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <select
+              value={selectedPres}
+              onChange={(e) => setSelectedPres(e.target.value)}
+              className="oi-field"
+            >
+              {product.presentation.map((p) => (
+                <option key={p} value={p} className="bg-[#071927] text-foam">
+                  {p}
+                </option>
+              ))}
+            </select>
           </div>
         )}
 
-        {/* Selector de cantidad */}
+        {/* Cantidad */}
         {unitPrice > 0 && (
-          <div className="mt-3 flex items-center gap-2">
-            <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+          <div className="flex items-center gap-2">
+            <label className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
               {t.cart.quantity}
             </label>
-            <div className="flex items-center rounded-lg border border-border overflow-hidden">
+            <div className="oi-stepper">
               <button
                 onClick={() => setQuantity(Math.max(minQty, quantity - 1))}
-                className="px-2.5 py-1.5 text-sm hover:bg-muted transition-colors"
                 aria-label={locale === "es" ? "Reducir" : "Decrease"}
               >
                 −
@@ -229,65 +235,53 @@ function ProductCard({ product, config }: { product: Product; config: any }) {
                 type="number"
                 value={quantity}
                 onChange={(e) => setQuantity(Math.max(minQty, Number(e.target.value) || minQty))}
-                className="w-14 text-center text-sm py-1.5 border-x border-border focus:outline-none"
                 min={minQty}
                 step={minQty < 1 ? 0.5 : 1}
               />
               <button
                 onClick={() => setQuantity(quantity + 1)}
-                className="px-2.5 py-1.5 text-sm hover:bg-muted transition-colors"
                 aria-label={locale === "es" ? "Aumentar" : "Increase"}
               >
                 +
               </button>
             </div>
-            <span className="text-xs text-muted-foreground">{unit}</span>
+            <span className="text-xs text-slate-400">{unit}</span>
           </div>
         )}
 
         {/* Tags */}
-        <div className="mt-4 flex flex-wrap gap-1.5">
-          {product.tags.map((tag) => {
-            const className = tagClassNames[tag];
-            return (
-              <Badge key={tag} variant="outline" className={cn("text-[10px] font-semibold", className)}>
-                {tagLabel(tag)}
-              </Badge>
-            );
-          })}
-        </div>
-      </CardContent>
+        {product.tags.length > 0 && (
+          <div className="flex flex-wrap gap-1.5">
+            {product.tags.map((tag) => (
+              <span key={tag} className="oi-chip-dark capitalize">
+                {tag}
+              </span>
+            ))}
+          </div>
+        )}
 
-      <CardFooter className="p-5 pt-0 flex-col gap-2">
-        <Button
-          onClick={handleAdd}
-          className={cn(
-            "w-full text-white group/btn transition-all",
-            added ? "bg-emerald-600 hover:bg-emerald-600" : "bg-ocean-600 hover:bg-ocean-700"
-          )}
-        >
-          {added ? (
-            <>
-              <Check className="h-4 w-4" />
-              {locale === "es" ? "Agregado" : "Added"}
-            </>
-          ) : (
-            <>
-              <Plus className="h-4 w-4" />
-              {unitPrice > 0
-                ? `${t.catalog.addToCart} · ${mxn(unitPrice * quantity)}`
-                : t.nav.quote}
-            </>
-          )}
-        </Button>
-        <Button asChild variant="ghost" size="sm" className="w-full text-muted-foreground">
-          <a href={waLink} target="_blank" rel="noopener noreferrer">
+        {/* Acciones */}
+        <div className="mt-auto flex flex-col gap-1.5 pt-1">
+          <button onClick={handleAdd} className={cn("oi-btn-aqua", added && "added")}>
+            {added ? (
+              <>
+                <Check className="h-4 w-4" />
+                {locale === "es" ? "Agregado" : "Added"}
+              </>
+            ) : (
+              <>
+                <Plus className="h-4 w-4" />
+                {unitPrice > 0 ? `${t.catalog.addToCart} · ${mxn(unitPrice * quantity)}` : t.nav.quote}
+              </>
+            )}
+          </button>
+          <a href={waLink} target="_blank" rel="noopener noreferrer" className="oi-link-wa">
             <MessageCircle className="h-3.5 w-3.5" />
             {locale === "es" ? "Preguntar por WhatsApp" : "Ask on WhatsApp"}
           </a>
-        </Button>
-      </CardFooter>
-    </Card>
+        </div>
+      </div>
+    </article>
   );
 }
 
@@ -309,79 +303,67 @@ export function ProductCatalog() {
   };
 
   const products = apiProducts && apiProducts.length > 0 ? apiProducts : fallbackProducts;
-
-  const filtered =
-    category === "todos"
-      ? products
-      : products.filter((p) => p.category === category);
-
+  const filtered = category === "todos" ? products : products.filter((p) => p.category === category);
   const activeConfig = siteConfig || fallbackConfig;
+  const mode = channel === "MAYOREO" ? "mayoreo" : "menudeo";
 
   return (
-    <section id="productos" className="relative py-20 sm:py-28 bg-background">
+    <section id="productos" className="relative py-20 text-foam sm:py-28">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         {/* Encabezado */}
-        <div className="max-w-3xl">
-          <span className="inline-flex items-center gap-2 rounded-full bg-ocean-50 border border-ocean-100 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-ocean-700">
-            {t.catalog.badge}
-          </span>
-          <h2 className="mt-4 font-display text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight text-foreground">
+        <div className="mx-auto max-w-3xl text-center">
+          <span className="oi-eyebrow justify-center">{t.catalog.badge}</span>
+          <h2 className="oi-section-title mt-4">
             {t.catalog.title}
           </h2>
-          <p className="mt-4 text-base sm:text-lg text-muted-foreground leading-relaxed">
-            {t.catalog.subtitle}
-          </p>
+          <p className="oi-lead mx-auto mt-4 max-w-2xl">{t.catalog.subtitle}</p>
         </div>
 
-        {/* Switch de canal */}
-        <div className="mt-6 inline-flex items-center gap-1 rounded-xl bg-muted p-1 border border-border">
-          <button
-            onClick={() => setChannel("MENUDEO")}
-            className={cn(
-              "px-4 py-2 text-sm font-medium rounded-lg transition-colors",
-              channel === "MENUDEO" ? "bg-amber-brand-500 text-white shadow-sm" : "text-muted-foreground hover:text-foreground"
-            )}
-          >
-            {t.catalog.menudeo} {locale === "es" ? "(hogar)" : "(home)"}
-          </button>
-          <button
-            onClick={() => setChannel("MAYOREO")}
-            className={cn(
-              "px-4 py-2 text-sm font-medium rounded-lg transition-colors",
-              channel === "MAYOREO" ? "bg-ocean-600 text-white shadow-sm" : "text-muted-foreground hover:text-foreground"
-            )}
-          >
-            {t.catalog.mayoreo} {locale === "es" ? "(negocio)" : "(business)"}
-          </button>
+        {/* Switch de canal (píldora deslizante) */}
+        <div className="mt-8 flex flex-col items-center gap-3">
+          <div className="oi-mode-switch" data-mode={mode} role="group" aria-label={locale === "es" ? "Modo de compra" : "Purchase mode"}>
+            <span className="oi-mode-ind" aria-hidden="true" />
+            <button
+              className={cn("oi-mode-btn", mode === "mayoreo" && "active")}
+              onClick={() => setChannel("MAYOREO")}
+              aria-pressed={mode === "mayoreo"}
+            >
+              {t.catalog.mayoreo} {locale === "es" ? "(negocio)" : "(business)"}
+            </button>
+            <button
+              className={cn("oi-mode-btn", mode === "menudeo" && "active")}
+              onClick={() => setChannel("MENUDEO")}
+              aria-pressed={mode === "menudeo"}
+            >
+              {t.catalog.menudeo} {locale === "es" ? "(hogar)" : "(home)"}
+            </button>
+          </div>
         </div>
 
         {/* Filtros por categoría */}
-        <div className="mt-6">
-          <Tabs value={category} onValueChange={setCategory}>
-            <TabsList className="bg-muted/60 h-auto p-1 flex flex-wrap gap-1">
-              {categoryKeys.map((key) => (
-                <TabsTrigger
-                  key={key}
-                  value={key}
-                  className="data-[state=active]:bg-ocean-600 data-[state=active]:text-white rounded-md px-4 py-2 text-sm font-medium"
-                >
-                  {categoryLabel(key)}
-                </TabsTrigger>
-              ))}
-            </TabsList>
-          </Tabs>
+        <div className="mt-6 flex flex-wrap justify-center gap-2">
+          {categoryKeys.map((key) => (
+            <button
+              key={key}
+              onClick={() => setCategory(key)}
+              className={cn("oi-cat-pill", category === key && "active")}
+              data-hover
+            >
+              {categoryLabel(key)}
+            </button>
+          ))}
         </div>
 
         {/* Grid de productos */}
         {loading ? (
           <div className="mt-10 flex items-center justify-center py-12">
-            <Loader2 className="h-6 w-6 animate-spin text-ocean-600" />
-            <span className="ml-2 text-muted-foreground">
+            <Loader2 className="h-6 w-6 animate-spin text-teal-light" />
+            <span className="ml-2 text-slate-400">
               {locale === "es" ? "Cargando catálogo..." : "Loading catalog..."}
             </span>
           </div>
         ) : (
-          <div className="mt-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 sm:gap-6">
+          <div className="mt-10 grid grid-cols-1 gap-5 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3 xl:grid-cols-4">
             {filtered.map((product) => (
               <ProductCard key={product.id} product={product} config={activeConfig} />
             ))}
@@ -389,13 +371,13 @@ export function ProductCatalog() {
         )}
 
         {/* Aviso */}
-        <p className="mt-10 text-center text-sm text-muted-foreground">
+        <p className="mt-10 text-center text-sm text-slate-400">
           {locale === "es" ? "¿Buscas un producto que no está listado?" : "Looking for a product not listed?"}{" "}
           <a
             href={`https://wa.me/${activeConfig.contact.whatsapp}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="font-semibold text-ocean-700 hover:text-ocean-800 underline underline-offset-2"
+            className="font-semibold text-teal-light underline underline-offset-2 hover:text-amber-light"
           >
             {locale === "es" ? "Consultanos directamente" : "Contact us directly"}
           </a>

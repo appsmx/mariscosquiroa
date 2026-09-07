@@ -33,8 +33,9 @@ export default function Home() {
       <main className="relative z-10 flex-1">
         {/* Hero inmersivo: transparente para dejar ver el canvas del océano */}
         <Hero />
-        {/* El resto del sitio conserva su fondo claro y tapa el canvas */}
-        <div className="relative z-10 bg-background">
+        {/* Tema oscuro "Océano Interactivo": las secciones son translúcidas y
+            dejan ver el canvas del océano detrás. */}
+        <div className="relative z-10">
           <Differentiators />
           <ProductCatalog />
           <SalesChannels />

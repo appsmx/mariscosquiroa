@@ -46,7 +46,7 @@ export function Footer() {
   const bottomMade = locale === "es" ? "Hecho con orgullo bajacaliforniano" : "Made with Baja California pride";
 
   return (
-    <footer className="bg-ocean-950 text-white">
+    <footer className="oi-glass-deep relative z-10 text-foam">
       {/* CTA superior */}
       <div className="border-b border-white/10">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-12">
@@ -64,7 +64,7 @@ export function Footer() {
                 href={waLink}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center justify-center gap-2 rounded-xl bg-amber-brand-500 hover:bg-amber-brand-600 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-amber-brand-900/30 transition-colors"
+                className="oi-btn-gold justify-center"
               >
                 <MessageCircle className="h-4 w-4" />
                 {t.footer.whatsappBtn}
@@ -96,7 +96,7 @@ export function Footer() {
                 <p className="font-display text-xl font-extrabold text-white">
                   Mariscos Quiroa
                 </p>
-                <p className="text-xs text-amber-brand-200 uppercase tracking-[0.18em]">
+                <p className="text-xs text-amber-light uppercase tracking-[0.18em]">
                   {t.hero.tagline}
                 </p>
               </div>
@@ -108,15 +108,15 @@ export function Footer() {
 
             <div className="mt-6 space-y-2 text-sm">
               <a href={`tel:${contact.phone}`} className="flex items-center gap-3 text-white/80 hover:text-white transition-colors">
-                <Phone className="h-4 w-4 text-amber-brand-300" />
+                <Phone className="h-4 w-4 text-amber-light" />
                 {contact.phoneDisplay}
               </a>
               <a href={`mailto:${contact.email}`} className="flex items-center gap-3 text-white/80 hover:text-white transition-colors break-all">
-                <Mail className="h-4 w-4 text-amber-brand-300 shrink-0" />
+                <Mail className="h-4 w-4 text-amber-light shrink-0" />
                 {contact.email}
               </a>
               <p className="flex items-start gap-3 text-white/80">
-                <MapPin className="h-4 w-4 text-amber-brand-300 shrink-0 mt-0.5" />
+                <MapPin className="h-4 w-4 text-amber-light shrink-0 mt-0.5" />
                 <span>
                   {contact.address.street}
                   <br />
@@ -137,7 +137,7 @@ export function Footer() {
                   <li key={link.label}>
                     <Link
                       href={link.href}
-                      className="text-sm text-white/65 hover:text-amber-brand-200 transition-colors"
+                      className="text-sm text-white/65 hover:text-amber-light transition-colors"
                     >
                       {link.label}
                     </Link>

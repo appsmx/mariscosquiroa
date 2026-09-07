@@ -37,37 +37,37 @@ export function About() {
   const { t, locale } = useI18n();
   const config = siteConfig || fallbackConfig;
   return (
-    <section id="nosotros" className="relative py-20 sm:py-28 bg-background overflow-hidden">
+    <section id="nosotros" className="relative overflow-hidden py-20 text-foam sm:py-28">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16 items-center">
+        <div className="grid grid-cols-1 items-center gap-10 lg:grid-cols-2 lg:gap-16">
           {/* Imagen */}
           <div className="relative order-2 lg:order-1">
-            <div className="relative aspect-[4/5] sm:aspect-[5/6] rounded-3xl overflow-hidden shadow-2xl">
+            <div className="relative aspect-[4/5] overflow-hidden rounded-3xl shadow-2xl sm:aspect-[5/6]">
               <img
                 src={config.images.story}
                 alt="Puerto pesquero de Rosarito al atardecer"
                 className="h-full w-full object-cover"
                 loading="lazy"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-ocean-950/60 via-transparent to-transparent" />
+              <div className="absolute inset-0 bg-gradient-to-t from-abyss/70 via-transparent to-transparent" />
             </div>
 
             {/* Card flotante */}
-            <div className="absolute -bottom-6 -right-2 sm:right-6 max-w-[260px] rounded-2xl bg-card border border-border shadow-xl p-5">
+            <div className="oi-glass absolute -bottom-6 -right-2 max-w-[260px] rounded-2xl p-5 shadow-xl sm:right-6">
               <div className="flex items-center gap-3">
-                <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-amber-brand-100 text-amber-brand-700">
+                <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-amber-light/15 text-amber-light">
                   <Award className="h-5 w-5" />
                 </span>
                 <div>
-                  <p className="font-display text-2xl font-bold text-foreground">
+                  <p className="font-display text-2xl font-bold text-foam">
                     +{config.brand.trajectoryYears} {locale === "es" ? "años" : "years"}
                   </p>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-xs text-slate-400">
                     {locale === "es" ? "de trayectoria" : "in business"}
                   </p>
                 </div>
               </div>
-              <p className="mt-3 text-xs text-muted-foreground leading-relaxed">
+              <p className="mt-3 text-xs leading-relaxed text-slate-400">
                 {locale === "es"
                   ? `Abasteciendo a la región desde ${config.brand.foundedYear}.`
                   : `Supplying the region since ${config.brand.foundedYear}.`}
@@ -75,52 +75,44 @@ export function About() {
             </div>
 
             {/* Decoración */}
-            <div className="absolute -top-6 -left-6 -z-10 h-40 w-40 rounded-full bg-ocean-100 blur-2xl" />
+            <div className="absolute -left-6 -top-6 -z-10 h-40 w-40 rounded-full bg-teal/20 blur-2xl" />
           </div>
 
           {/* Contenido */}
           <div className="order-1 lg:order-2">
-            <span className="inline-flex items-center gap-2 rounded-full bg-ocean-50 border border-ocean-100 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-ocean-700">
-              {t.about.badge}
-            </span>
-            <h2 className="mt-4 font-display text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight text-foreground">
-              {t.about.title}
-            </h2>
-            <p className="mt-5 text-base sm:text-lg text-muted-foreground leading-relaxed">
-              {config.brand.description}
-            </p>
+            <span className="oi-eyebrow">{t.about.badge}</span>
+            <h2 className="oi-section-title mt-4">{t.about.title}</h2>
+            <p className="oi-lead mt-5">{config.brand.description}</p>
 
             {/* Mini stats */}
             <div className="mt-8 grid grid-cols-3 gap-4">
-              <div className="rounded-xl border border-border bg-card p-4">
-                <Users className="h-5 w-5 text-ocean-600" />
-                <p className="mt-2 font-display text-2xl font-bold text-foreground">+800</p>
-                <p className="text-xs text-muted-foreground">{locale === "es" ? "Clientes activos" : "Active customers"}</p>
+              <div className="oi-glass rounded-xl p-4">
+                <Users className="h-5 w-5 text-teal-light" />
+                <p className="mt-2 font-display text-2xl font-bold text-foam">+800</p>
+                <p className="text-xs text-slate-400">{locale === "es" ? "Clientes activos" : "Active customers"}</p>
               </div>
-              <div className="rounded-xl border border-border bg-card p-4">
-                <Anchor className="h-5 w-5 text-ocean-600" />
-                <p className="mt-2 font-display text-2xl font-bold text-foreground">12</p>
-                <p className="text-xs text-muted-foreground">{locale === "es" ? "Cooperativas aliadas" : "Partner cooperatives"}</p>
+              <div className="oi-glass rounded-xl p-4">
+                <Anchor className="h-5 w-5 text-teal-light" />
+                <p className="mt-2 font-display text-2xl font-bold text-foam">12</p>
+                <p className="text-xs text-slate-400">{locale === "es" ? "Cooperativas aliadas" : "Partner cooperatives"}</p>
               </div>
-              <div className="rounded-xl border border-border bg-card p-4">
-                <MapPin className="h-5 w-5 text-ocean-600" />
-                <p className="mt-2 font-display text-2xl font-bold text-foreground">5</p>
-                <p className="text-xs text-muted-foreground">{locale === "es" ? "Ciudades servidas" : "Cities served"}</p>
+              <div className="oi-glass rounded-xl p-4">
+                <MapPin className="h-5 w-5 text-teal-light" />
+                <p className="mt-2 font-display text-2xl font-bold text-foam">5</p>
+                <p className="text-xs text-slate-400">{locale === "es" ? "Ciudades servidas" : "Cities served"}</p>
               </div>
             </div>
 
             {/* Línea de tiempo */}
             <div className="mt-10 space-y-5">
               {timeline.map((item) => (
-                <div key={item.year} className="relative pl-6 border-l-2 border-ocean-200">
-                  <span className="absolute -left-[7px] top-1 h-3 w-3 rounded-full bg-amber-brand-500 ring-4 ring-amber-brand-100" />
+                <div key={item.year} className="relative border-l-2 border-teal/40 pl-6">
+                  <span className="absolute -left-[7px] top-1 h-3 w-3 rounded-full bg-amber-light ring-4 ring-amber-light/20" />
                   <div className="flex items-baseline gap-3">
-                    <span className="font-display text-lg font-bold text-ocean-700">{item.year}</span>
-                    <h4 className="font-semibold text-foreground">{item.title}</h4>
+                    <span className="font-display text-lg font-bold text-teal-light">{item.year}</span>
+                    <h4 className="font-semibold text-foam">{item.title}</h4>
                   </div>
-                  <p className="mt-1 text-sm text-muted-foreground leading-relaxed">
-                    {item.description}
-                  </p>
+                  <p className="mt-1 text-sm leading-relaxed text-slate-400">{item.description}</p>
                 </div>
               ))}
             </div>
