@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { createOrder } from "@/lib/order-service";
+import { createOrderWithDedup } from "@/lib/order-service";
 
 /**
  * Servicio central del agente de IA de Mariscos Quiroa.
@@ -209,7 +209,13 @@ REDES SOCIALES:
 async function ejecutarCrearPedido(
   args: any,
   ctx: { customerPhone: string; source: string }
-): Promise<{ ok: boolean; result: string; orderCode?: string; total?: number }> {
+): Promise<{
+  ok: boolean;
+  result: string;
+  orderCode?: string;
+  total?: number;
+  action?: "created" | "updated" | "duplicate_ignored";
+}> {
   try {
     const rawItems: any[] = Array.isArray(args?.items) ? args.items : [];
     if (rawItems.length === 0) {
@@ -258,26 +264,51 @@ async function ejecutarCrearPedido(
       };
     });
 
-    const order = await createOrder({
-      customerName: String(args?.customerName || "Cliente"),
-      customerPhone: ctx.customerPhone,
-      channel,
-      deliveryAddress: args?.deliveryAddress || null,
-      deliveryCity: args?.deliveryCity || null,
-      notes: args?.notes || null,
-      items,
-      source: ctx.source,
-    });
+    const { order, action } = await createOrderWithDedup(
+      {
+        customerName: String(args?.customerName || "Cliente"),
+        customerPhone: ctx.customerPhone,
+        channel,
+        deliveryAddress: args?.deliveryAddress || null,
+        deliveryCity: args?.deliveryCity || null,
+        notes: args?.notes || null,
+        items,
+        source: ctx.source,
+      },
+      { forceNew: args?.forzar_pedido_nuevo === true }
+    );
 
     const itemsResumen = order.items
       .map((it) => `${it.quantity} ${it.unit} de ${it.productName}${it.presentation ? ` (${it.presentation})` : ""}${it.unitPrice ? ` a $${it.unitPrice}/${it.unit}` : ""}`)
       .join("; ");
 
+    // El texto que devolvemos al modelo cambia según lo que ocurrió, para que
+    // confirme al cliente con el lenguaje correcto (no "nuevo pedido" si en
+    // realidad se actualizó uno existente).
+    let result: string;
+    if (action === "updated") {
+      result =
+        `Se ACTUALIZÓ el pedido en curso del cliente (mismo código ${order.code}); ` +
+        `no se creó uno nuevo. Ahora incluye: ${itemsResumen}. Total estimado: $${order.total} MXN. ` +
+        `Confírmale que actualizaste su pedido ${order.code} con estos productos (no que creaste uno nuevo).`;
+    } else if (action === "duplicate_ignored") {
+      result =
+        `El cliente ya tenía este mismo pedido registrado hace un momento (código ${order.code}); ` +
+        `NO se duplicó. Confírmale que su pedido ${order.code} ya está registrado con: ${itemsResumen}. ` +
+        `Total estimado: $${order.total} MXN.`;
+    } else {
+      result =
+        `Pedido registrado con éxito. Código: ${order.code}. Productos: ${itemsResumen}. ` +
+        `Total estimado: $${order.total} MXN (status: NUEVO, el equipo lo confirmará). ` +
+        `Confírmale al cliente el código ${order.code} y que su pedido quedó registrado.`;
+    }
+
     return {
       ok: true,
       orderCode: order.code,
       total: order.total,
-      result: `Pedido registrado con éxito. Código: ${order.code}. Productos: ${itemsResumen}. Total estimado: $${order.total} MXN (status: NUEVO, el equipo lo confirmará). Confírmale al cliente el código ${order.code} y que su pedido quedó registrado.`,
+      action,
+      result,
     };
   } catch (e: any) {
     console.error("[crear_pedido] Error:", e?.message);
@@ -321,6 +352,11 @@ Tienes una herramienta llamada crear_pedido que REGISTRA el pedido en el sistema
 - No inventes precios al llamar la herramienta: el sistema calcula el total con los precios reales del catálogo. Tú solo pasas producto, presentación y cantidad.
 - Si la herramienta falla, discúlpate y ofrece reintentar o tomar sus datos para que el equipo lo capture.
 - Una vez registrado el pedido, si el cliente pregunta "¿quedó?/¿lo tienen?", responde con seguridad que SÍ, dándole el código; ya está en el sistema.
+
+EVITAR PEDIDOS DUPLICADOS Y MODIFICACIONES (IMPORTANTE):
+- El sistema detecta automáticamente si el cliente ya tiene un pedido en curso (mismo contacto, reciente). Si el cliente CAMBIA o AGREGA algo a su pedido (ej. "mejor que sean 3 kg", "súmale 1 kg de pulpo"), simplemente vuelve a llamar crear_pedido con la lista COMPLETA y actualizada de productos: el sistema ACTUALIZA su pedido existente (mismo código) en vez de crear otro. La herramienta te dirá si actualizó o creó; confírmale al cliente con ese lenguaje (ej. "actualicé tu pedido MEJ-... " si se actualizó).
+- Cuando llames crear_pedido para una modificación, incluye TODOS los productos que el pedido debe tener al final (no solo el que cambió), porque la lista reemplaza a la anterior.
+- Si el cliente ya tiene un pedido y dice que quiere hacer OTRO pedido APARTE (adicional), entonces sí pon forzar_pedido_nuevo en true para crear uno nuevo. Si hay duda de si quiere modificar el actual o hacer uno nuevo, PREGÚNTALE antes de registrar.
 
 OTRAS ACCIONES QUE PUEDES SUGERIR:
 - "Agrega el producto al carrito desde la tarjeta del catálogo" (solo en la web)
@@ -399,6 +435,11 @@ const CREAR_PEDIDO_TOOL: LLMTool = {
         deliveryAddress: { type: "string", description: "Dirección de entrega, si aplica. Opcional (vacío = recoge en tienda)." },
         deliveryCity: { type: "string", description: "Ciudad de entrega. Opcional." },
         notes: { type: "string", description: "Notas del cliente: hora de recolección, indicaciones, etc. Opcional." },
+        forzar_pedido_nuevo: {
+          type: "boolean",
+          description:
+            "Normalmente déjalo en false (u omítelo). El sistema detecta si el cliente ya tiene un pedido en curso y lo ACTUALIZA en vez de duplicar. Pon true SOLO si el cliente dijo explícitamente que quiere un pedido ADICIONAL/APARTE del que ya tiene, para forzar la creación de uno nuevo.",
+        },
       },
       required: ["customerName", "items"],
     },
@@ -421,6 +462,7 @@ export async function processCustomerMessage(
     let content = "";
     let orderCode: string | undefined;
     let orderTotal: number | undefined;
+    let orderAction: "created" | "updated" | "duplicate_ignored" | undefined;
     try {
       const businessContext = await buildBusinessContext();
       let systemPrompt = AGENT_SYSTEM_PROMPT.replace("{BUSINESS_CONTEXT}", businessContext);
@@ -477,6 +519,7 @@ CANAL ACTUAL: ${canalNombre}.
             if (exec.ok) {
               orderCode = exec.orderCode;
               orderTotal = exec.total;
+              orderAction = exec.action;
             }
             toolMessages.push({
               role: "tool",
@@ -498,10 +541,14 @@ CANAL ACTUAL: ${canalNombre}.
         const second = await callLLM(toolMessages, { temperature: 0.6, maxTokens: 500 });
         content = second.text;
 
-        // Red de seguridad: si el modelo no redactó nada pero SÍ se creó el pedido,
-        // damos una confirmación mínima con el código real.
+        // Red de seguridad: si el modelo no redactó nada pero SÍ se registró el
+        // pedido, damos una confirmación mínima con el código real y el lenguaje
+        // correcto según lo que ocurrió (creado vs actualizado).
         if (!content && orderCode) {
-          content = `¡Listo! Tu pedido quedó registrado con el código ${orderCode}. Nuestro equipo lo preparará. 🦐`;
+          content =
+            orderAction === "updated"
+              ? `¡Listo! Actualicé tu pedido ${orderCode} con estos productos. Nuestro equipo lo preparará. 🦐`
+              : `¡Listo! Tu pedido quedó registrado con el código ${orderCode}. Nuestro equipo lo preparará. 🦐`;
         }
       } else {
         content = first.text;
