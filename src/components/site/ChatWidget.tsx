@@ -166,7 +166,7 @@ export function ChatWidget() {
       <button
         onClick={() => setIsOpen(!isOpen)}
         className={cn(
-          "fixed bottom-5 left-5 z-40 inline-flex h-14 w-14 items-center justify-center rounded-full shadow-xl transition-all hover:scale-105",
+          "fixed bottom-5 left-5 z-[60] inline-flex h-14 w-14 items-center justify-center rounded-full shadow-xl transition-all hover:scale-105",
           isOpen
             ? "bg-foreground text-background rotate-90"
             : "bg-gradient-to-br from-ocean-500 to-ocean-700 text-white shadow-ocean-900/30"
@@ -195,7 +195,7 @@ export function ChatWidget() {
 
       {/* Ventana de chat */}
       {isOpen && (
-        <div className="fixed bottom-24 left-5 z-40 w-[calc(100vw-2.5rem)] sm:w-96 max-h-[70vh] sm:max-h-[600px] flex flex-col rounded-2xl bg-card border border-border shadow-2xl overflow-hidden animate-fade-up">
+        <div className="fixed bottom-24 left-5 z-[60] w-[calc(100vw-2.5rem)] sm:w-96 max-h-[70vh] sm:max-h-[600px] flex flex-col rounded-2xl bg-card border border-border shadow-2xl overflow-hidden animate-fade-up">
           {/* Header */}
           <div className="flex items-center gap-3 px-4 py-3 bg-gradient-to-r from-ocean-600 to-ocean-700 text-white">
             <div className="relative">
