@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { ShoppingCart, Phone, MessageCircle, Calendar, Filter, X, Search, Download, ChevronLeft, ChevronRight } from "lucide-react";
+import { ShoppingCart, Phone, MessageCircle, MessageSquare, Calendar, Filter, X, Search, Download, ChevronLeft, ChevronRight } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -350,24 +350,48 @@ export default function AdminOrders() {
               <div className="rounded-lg border border-border p-4 space-y-2">
                 <h3 className="font-semibold text-sm">Cliente</h3>
                 <p className="font-medium text-foreground">{selected.customerName}</p>
-                <div className="flex flex-wrap gap-3 text-sm">
-                  <a
-                    href={`tel:${selected.customerPhone}`}
-                    className="inline-flex items-center gap-1.5 text-ocean-700 hover:underline"
-                  >
-                    <Phone className="h-3.5 w-3.5" />
-                    {selected.customerPhone}
-                  </a>
-                  <a
-                    href={`https://wa.me/${selected.customerPhone.replace(/\D/g, "")}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 text-emerald-600 hover:underline"
-                  >
-                    <MessageCircle className="h-3.5 w-3.5" />
-                    WhatsApp
-                  </a>
-                </div>
+                {(() => {
+                  const src = (selected.source || "").toLowerCase();
+                  const isChat = ["whatsapp", "messenger", "instagram"].includes(src);
+                  const hasPhone = selected.customerPhone && selected.customerPhone !== "sin-telefono";
+                  // Para WhatsApp el customerPhone es un teléfono real (E.164); para
+                  // Messenger/Instagram es un id de canal (ig:/msgr:), no un teléfono.
+                  const isRealPhone = src === "whatsapp" && hasPhone;
+                  return (
+                    <div className="flex flex-wrap items-center gap-3 text-sm">
+                      {isRealPhone && (
+                        <>
+                          <a
+                            href={`tel:${selected.customerPhone}`}
+                            className="inline-flex items-center gap-1.5 text-ocean-700 hover:underline"
+                          >
+                            <Phone className="h-3.5 w-3.5" />
+                            {selected.customerPhone}
+                          </a>
+                          <a
+                            href={`https://wa.me/${selected.customerPhone.replace(/\D/g, "")}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1.5 text-emerald-600 hover:underline"
+                          >
+                            <MessageCircle className="h-3.5 w-3.5" />
+                            WhatsApp
+                          </a>
+                        </>
+                      )}
+                      {/* Enlace a la conversación donde se hizo el pedido (canales de chat) */}
+                      {isChat && hasPhone && (
+                        <a
+                          href={`/admin/conversaciones?phone=${encodeURIComponent(selected.customerPhone)}`}
+                          className="inline-flex items-center gap-1.5 rounded-lg bg-ocean-50 border border-ocean-200 px-2.5 py-1 font-medium text-ocean-700 hover:bg-ocean-100"
+                        >
+                          <MessageSquare className="h-3.5 w-3.5" />
+                          Ver conversación
+                        </a>
+                      )}
+                    </div>
+                  );
+                })()}
                 {selected.customerEmail && (
                   <p className="text-sm text-muted-foreground">{selected.customerEmail}</p>
                 )}

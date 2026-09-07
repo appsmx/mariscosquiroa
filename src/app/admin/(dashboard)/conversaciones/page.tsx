@@ -77,6 +77,26 @@ export default function ConversacionesPage() {
     loadList();
   }, [loadList]);
 
+  // Deep-link desde un pedido: /admin/conversaciones?phone=<customerPhone> o ?id=<convId>
+  // Resuelve el teléfono a un id de conversación y la preselecciona.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const idParam = params.get("id");
+    const phoneParam = params.get("phone");
+    if (idParam) {
+      setSelectedId(idParam);
+      return;
+    }
+    if (phoneParam) {
+      fetch(`/api/admin/conversations/by-phone?phone=${encodeURIComponent(phoneParam)}`)
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d) => {
+          if (d?.id) setSelectedId(d.id);
+        })
+        .catch(() => {});
+    }
+  }, []);
+
   useEffect(() => {
     if (!selectedId) return;
     setLoadingDetail(true);
