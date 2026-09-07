@@ -74,9 +74,10 @@ const NO_PHONE = "sin-telefono";
 
 export type DedupResult = {
   order: CreatedOrder;
-  /** "created" = pedido nuevo · "updated" = se actualizó uno abierto reciente ·
-   *  "duplicate_ignored" = idéntico reciente, se devolvió el existente. */
-  action: "created" | "updated" | "duplicate_ignored";
+  /** "created" = pedido nuevo · "updated" = se reemplazó el contenido de uno
+   *  abierto · "added" = se agregaron productos a uno abierto (se conservó lo
+   *  anterior) · "duplicate_ignored" = idéntico reciente, se devolvió el existente. */
+  action: "created" | "updated" | "added" | "duplicate_ignored";
 };
 
 /**
@@ -142,7 +143,7 @@ export async function createOrder(input: CreateOrderInput): Promise<CreatedOrder
  */
 export async function createOrderWithDedup(
   input: CreateOrderInput,
-  opts: { forceNew?: boolean } = {}
+  opts: { forceNew?: boolean; updateMode?: "replace" | "add" } = {}
 ): Promise<DedupResult> {
   validateOrderInput(input);
 
@@ -167,16 +168,31 @@ export async function createOrderWithDedup(
     });
 
     if (openOrder) {
-      const { items, subtotal, total, deliveryCost } = buildItemsAndTotals(input);
+      const nuevos = buildItemsAndTotals(input).items;
 
       // (1) Idempotencia dura: mismos productos + muy reciente → no duplicar.
       const ageMs = Date.now() - new Date(openOrder.createdAt).getTime();
-      if (ageMs <= IDEMPOTENCY_WINDOW_MS && sameItems(openOrder.items, items)) {
+      if (
+        opts.updateMode !== "add" &&
+        ageMs <= IDEMPOTENCY_WINDOW_MS &&
+        sameItems(openOrder.items, nuevos)
+      ) {
         return { order: toCreatedOrder(openOrder), action: "duplicate_ignored" };
       }
 
-      // (2) Actualizar el pedido abierto: reemplazar items + recalcular totales,
-      //     manteniendo el mismo código MEJ. Transacción para consistencia.
+      // Modo "add": conservar los items existentes y SUMAR los nuevos (fusionando
+      // los que coincidan en producto+presentación). Modo "replace" (default):
+      // la lista nueva reemplaza a la anterior.
+      const finalItems =
+        opts.updateMode === "add" ? mergeItems(openOrder.items, nuevos) : nuevos;
+
+      const subtotal = finalItems.reduce((sum, it) => sum + it.subtotal, 0);
+      const deliveryCost = Number(input.deliveryCost) || openOrder.deliveryCost || 0;
+      const total = subtotal + deliveryCost;
+
+      // (2) Actualizar el pedido abierto manteniendo el mismo código MEJ.
+      //     Transacción para consistencia.
+      const items = finalItems;
       const updated = await db.$transaction(async (tx) => {
         await tx.orderItem.deleteMany({ where: { orderId: openOrder.id } });
         return tx.order.update({
@@ -197,7 +213,10 @@ export async function createOrderWithDedup(
         });
       });
 
-      return { order: toCreatedOrder(updated), action: "updated" };
+      return {
+        order: toCreatedOrder(updated),
+        action: opts.updateMode === "add" ? "added" : "updated",
+      };
     }
   }
 
@@ -274,6 +293,69 @@ function buildItemsAndTotals(input: CreateOrderInput) {
   const deliveryCost = Number(input.deliveryCost) || 0;
   const total = subtotal + deliveryCost;
   return { items, subtotal, total, deliveryCost };
+}
+
+type BuiltItem = {
+  productId: string | null;
+  productName: string;
+  presentation: string | null;
+  quantity: number;
+  unit: string;
+  unitPrice: number;
+  subtotal: number;
+  notes: string | null;
+};
+
+/**
+ * Fusiona los items existentes de un pedido con los nuevos (modo "agregar").
+ * Si un producto nuevo coincide con uno existente (mismo nombre + presentación
+ * + unidad), SUMA las cantidades en el mismo renglón; si no, lo agrega aparte.
+ * Así "agrega 1 kg de pulpo" conserva el camarón y la mojarra ya pedidos.
+ */
+function mergeItems(
+  existentes: Array<{
+    productId: string | null;
+    productName: string;
+    presentation: string | null;
+    quantity: number;
+    unit: string;
+    unitPrice: number;
+    subtotal: number;
+    notes: string | null;
+  }>,
+  nuevos: BuiltItem[]
+): BuiltItem[] {
+  const key = (it: { productName: string; presentation: string | null; unit: string }) =>
+    `${it.productName.trim().toLowerCase()}|${(it.presentation || "").trim().toLowerCase()}|${it.unit.trim().toLowerCase()}`;
+
+  const merged = new Map<string, BuiltItem>();
+  // Partimos de los existentes (normalizados al mismo shape).
+  for (const it of existentes) {
+    merged.set(key(it), {
+      productId: it.productId,
+      productName: it.productName,
+      presentation: it.presentation,
+      quantity: it.quantity,
+      unit: it.unit,
+      unitPrice: it.unitPrice,
+      subtotal: it.subtotal,
+      notes: it.notes,
+    });
+  }
+  // Sumamos los nuevos.
+  for (const it of nuevos) {
+    const k = key(it);
+    const prev = merged.get(k);
+    if (prev) {
+      const quantity = prev.quantity + it.quantity;
+      // Preferimos el precio unitario recién resuelto del catálogo si viene.
+      const unitPrice = it.unitPrice || prev.unitPrice;
+      merged.set(k, { ...prev, quantity, unitPrice, subtotal: quantity * unitPrice });
+    } else {
+      merged.set(k, it);
+    }
+  }
+  return Array.from(merged.values());
 }
 
 /** Compara dos conjuntos de renglones ignorando el orden (para idempotencia). */
