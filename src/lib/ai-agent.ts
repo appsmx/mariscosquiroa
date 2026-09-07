@@ -53,7 +53,12 @@ type LLMResult = { text: string; toolCalls?: ToolCall[] };
  */
 async function callLLM(
   messages: LLMMessage[],
-  opts: { temperature?: number; maxTokens?: number; tools?: LLMTool[] } = {}
+  opts: {
+    temperature?: number;
+    maxTokens?: number;
+    tools?: LLMTool[];
+    toolChoice?: "auto" | "none" | { type: "function"; function: { name: string } };
+  } = {}
 ): Promise<LLMResult> {
   // Separar el system prompt del resto (LOGAN lo recibe aparte)
   const systemMsg = messages.find((m) => m.role === "system");
@@ -93,7 +98,9 @@ async function callLLM(
         history,
         temperature: opts.temperature ?? 0.7,
         maxTokens: opts.maxTokens ?? 600,
-        ...(opts.tools && opts.tools.length > 0 ? { tools: opts.tools, toolChoice: "auto" } : {}),
+        ...(opts.tools && opts.tools.length > 0
+          ? { tools: opts.tools, toolChoice: opts.toolChoice ?? "auto" }
+          : {}),
       }),
       signal: controller.signal,
     });
@@ -354,6 +361,8 @@ QUÉ PUEDES HACER:
 TOMAR PEDIDOS (MUY IMPORTANTE):
 Tienes una herramienta llamada crear_pedido que REGISTRA el pedido en el sistema de verdad. Úsala así:
 - Cuando el cliente CONFIRME que quiere hacer el pedido y ya tengas: (1) su nombre, (2) al menos un producto con su cantidad. Si te falta el nombre, pídelo una vez antes de registrar.
+- REGLA CRÍTICA DE CONTEXTO: si en un turno ANTERIOR el cliente ya te dio el producto y la cantidad (ej. "2 kg de camarón 16/20"), y en este mensaje te responde con su NOMBRE (aunque sea una sola palabra como "julian" o "soy Ana") o te confirma ("sí", "ese es", "confirmo"), eso YA COMPLETA los datos del pedido: LLAMA crear_pedido de INMEDIATO usando el producto/cantidad del historial y ese nombre. NO vuelvas a saludar, NO preguntes otra vez qué quiere, NO reinicies la conversación. El cliente ya te lo dijo antes; recuérdalo del historial.
+- Un mensaje corto (una o dos palabras) que llega justo después de que TÚ pediste el nombre es SIEMPRE el nombre del cliente, no un saludo. Trátalo como el dato que faltaba y registra el pedido.
 - NO la uses para cotizar o dar precios: eso lo haces conversando. Solo la usas para CONFIRMAR y registrar el pedido.
 - Después de llamarla, el sistema te devuelve un CÓDIGO de pedido (ej. MEJ-2026-0042). Confírmale al cliente ese código y que su pedido quedó registrado; el equipo lo preparará. NUNCA inventes un código: usa el que te devuelve la herramienta.
 - No inventes precios al llamar la herramienta: el sistema calcula el total con los precios reales del catálogo. Tú solo pasas producto, presentación y cantidad.
@@ -415,7 +424,7 @@ const CREAR_PEDIDO_TOOL: LLMTool = {
   function: {
     name: "crear_pedido",
     description:
-      "Registra un pedido en el sistema de Mariscos Quiroa. Úsala SOLO cuando el cliente ya confirmó explícitamente que quiere hacer el pedido y diste (o tienes) su nombre y al menos un producto con cantidad. No la uses para cotizar o preguntar precios; solo para CONFIRMAR y registrar. Después de llamarla, confirma al cliente con el código del pedido.",
+      "Registra un pedido en el sistema de Mariscos Quiroa. Úsala cuando tengas el nombre del cliente y al menos un producto con cantidad, aunque esos datos hayan llegado en MENSAJES DISTINTOS de la conversación (ej. el producto en un mensaje y el nombre en otro). Si ya pediste el nombre y el cliente responde con su nombre o confirma, DEBES llamarla de inmediato tomando el producto/cantidad del historial — no vuelvas a preguntar ni a saludar. No la uses para cotizar o preguntar precios; solo para registrar el pedido. Después de llamarla, confirma al cliente con el código del pedido.",
     parameters: {
       type: "object",
       properties: {
@@ -498,11 +507,31 @@ CANAL ACTUAL: ${canalNombre}.
       const customerPhone = ctx.customerPhone || "sin-telefono";
       const source = channel;
 
+      // Red de seguridad server-side para el caso "pedido pendiente + el cliente
+      // acaba de dar su nombre / confirmar". Si el último turno del bot ya pedía
+      // el nombre (o mencionaba cantidades/precios) y el cliente responde con un
+      // mensaje corto o una confirmación, forzamos la tool crear_pedido para que
+      // el modelo NO se quede saludando en vez de registrar.
+      const lastBotTurn = [...history].reverse().find((m) => m.role === "assistant")?.content?.toLowerCase() || "";
+      const botPidioNombreOMonto =
+        /tu nombre|me pasas tu nombre|confirmas tu nombre|para dejar|para dejarte|tu pedido|\$\s?\d|\d+\s?kg|\d+\s?kilo/.test(
+          lastBotTurn
+        );
+      const msgCortoOConfirma =
+        message.trim().split(/\s+/).length <= 4 ||
+        /^(s[ií]|dale|ok|okay|listo|confirmo?|conf[ií]rmalo|correcto|as[ií] es|va|ese es|adelante)/i.test(message.trim());
+      const canalConTelefono = customerPhone !== "sin-telefono";
+      const forzarPedido = canalConTelefono && botPidioNombreOMonto && msgCortoOConfirma;
+
       // Primera llamada: el modelo decide si responde o invoca crear_pedido.
+      // Si detectamos el cierre de un pedido pendiente, forzamos la herramienta.
       const first = await callLLM(messages, {
         temperature: 0.7,
         maxTokens: 600,
         tools: [CREAR_PEDIDO_TOOL],
+        toolChoice: forzarPedido
+          ? { type: "function", function: { name: "crear_pedido" } }
+          : "auto",
       });
 
       if (first.toolCalls && first.toolCalls.length > 0) {
