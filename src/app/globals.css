@@ -228,6 +228,10 @@ html {
   background: rgba(7,25,39,.5); border: 1px solid rgba(255,255,255,.12);
   backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
 }
+/* En móvil: menos tracking y fuente para que el texto quepa sin amontonarse */
+@media (max-width: 640px) {
+  .oi-glass-pill { font-size: .64rem; letter-spacing: .1em; padding: .5rem .85rem; }
+}
 
 /* --- Botón oro (CTA principal del hero) --- */
 .oi-btn-gold {

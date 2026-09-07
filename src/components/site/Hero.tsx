@@ -27,7 +27,7 @@ export function Hero() {
   return (
     <section
       id="inicio"
-      className="relative flex min-h-[100svh] items-center justify-center overflow-hidden px-5 pb-20 pt-32 text-foam"
+      className="relative flex min-h-[100svh] items-center justify-center overflow-hidden px-4 pb-28 pt-28 text-foam sm:px-5 sm:pb-24 sm:pt-32"
     >
       {/* Orbes difusos (el fondo de olas lo pinta OceanCanvas detrás de todo) */}
       <div className="oi-orb oi-orb-a" aria-hidden="true" />
@@ -59,7 +59,7 @@ export function Hero() {
       {/* Contenido */}
       <div className="relative z-10 flex max-w-4xl flex-col items-center text-center">
         {/* Badge en vivo */}
-        <div className="oi-glass-pill animate-fade-up">
+        <div className="oi-glass-pill animate-fade-up max-w-[92vw] flex-wrap justify-center text-center sm:max-w-none">
           <span className="oi-live-dot" />
           <span>{t.hero.badge}</span>
           <span className="hidden h-[3px] w-[3px] rounded-full bg-white/30 sm:inline-block" />
@@ -86,19 +86,19 @@ export function Hero() {
         </p>
 
         {/* CTAs — WhatsApp real + ancla al catálogo */}
-        <div className="mt-9 flex flex-wrap justify-center gap-4 animate-fade-up [animation-delay:0.4s]">
-          <a href="#productos" className="oi-btn-gold">
+        <div className="mt-9 flex w-full flex-col items-stretch justify-center gap-3 animate-fade-up [animation-delay:0.4s] sm:w-auto sm:flex-row sm:flex-wrap sm:items-center sm:gap-4">
+          <a href="#productos" className="oi-btn-gold justify-center">
             <Compass className="h-[18px] w-[18px]" />
             {t.hero.ctaPrimary}
           </a>
-          <a href={waLink} target="_blank" rel="noopener noreferrer" className="oi-btn-glass">
+          <a href={waLink} target="_blank" rel="noopener noreferrer" className="oi-btn-glass justify-center">
             <MessageCircle className="h-[18px] w-[18px]" />
             {t.hero.ctaSecondary}
           </a>
         </div>
 
         {/* Nota de confianza */}
-        <p className="mt-5 text-[.7rem] uppercase tracking-[0.16em] text-slate-500 animate-fade-up [animation-delay:0.45s]">
+        <p className="mt-6 max-w-xs text-[.7rem] uppercase leading-relaxed tracking-[0.16em] text-slate-500 animate-fade-up [animation-delay:0.45s] sm:max-w-none">
           Cadena de frío −18 °C &nbsp;·&nbsp; Entregas diarias en BC &nbsp;·&nbsp; Atención con LOGAN IA
         </p>
 
@@ -121,8 +121,8 @@ export function Hero() {
         </div>
       </div>
 
-      {/* Indicador de scroll */}
-      <div className="absolute bottom-7 left-1/2 z-10 flex -translate-x-1/2 flex-col items-center gap-2 text-[.66rem] uppercase tracking-[0.28em] text-[#7c8ea3]">
+      {/* Indicador de scroll (oculto en móvil para no competir con el chat) */}
+      <div className="absolute bottom-7 left-1/2 z-10 hidden -translate-x-1/2 flex-col items-center gap-2 text-[.66rem] uppercase tracking-[0.28em] text-[#7c8ea3] sm:flex">
         <span className="oi-mouse"><span className="oi-wheel" /></span>
         <span>Desliza para sumergirte</span>
       </div>
