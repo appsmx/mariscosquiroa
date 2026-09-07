@@ -228,7 +228,7 @@ async function ejecutarCrearPedido(
   result: string;
   orderCode?: string;
   total?: number;
-  action?: "created" | "updated" | "duplicate_ignored";
+  action?: "created" | "updated" | "added" | "duplicate_ignored";
 }> {
   try {
     const rawItems: any[] = Array.isArray(args?.items) ? args.items : [];
@@ -289,7 +289,10 @@ async function ejecutarCrearPedido(
         items,
         source: ctx.source,
       },
-      { forceNew: args?.forzar_pedido_nuevo === true }
+      {
+        forceNew: args?.forzar_pedido_nuevo === true,
+        updateMode: args?.modo_actualizacion === "agregar" ? "add" : "replace",
+      }
     );
 
     const itemsResumen = order.items
@@ -300,7 +303,13 @@ async function ejecutarCrearPedido(
     // confirme al cliente con el lenguaje correcto (no "nuevo pedido" si en
     // realidad se actualizó uno existente).
     let result: string;
-    if (action === "updated") {
+    if (action === "added") {
+      result =
+        `Se AGREGARON los productos al pedido en curso del cliente (mismo código ${order.code}); ` +
+        `se conservó lo que ya tenía. El pedido AHORA incluye TODO esto: ${itemsResumen}. ` +
+        `Total estimado actualizado: $${order.total} MXN. Confírmale que agregaste lo nuevo a su pedido ${order.code} ` +
+        `y enumérale la lista completa con el total.`;
+    } else if (action === "updated") {
       result =
         `Se ACTUALIZÓ el pedido en curso del cliente (mismo código ${order.code}); ` +
         `no se creó uno nuevo. Ahora incluye: ${itemsResumen}. Total estimado: $${order.total} MXN. ` +
@@ -378,8 +387,11 @@ CÓMO REGISTRAR UN PEDIDO (regla de oro):
 - Una vez registrado el pedido, si el cliente pregunta "¿quedó?/¿lo tienen?", responde con seguridad que SÍ, dándole el código; ya está en el sistema.
 
 EVITAR PEDIDOS DUPLICADOS Y MODIFICACIONES (IMPORTANTE):
-- El sistema detecta automáticamente si el cliente ya tiene un pedido en curso (mismo contacto, reciente). Si el cliente CAMBIA o AGREGA algo a su pedido (ej. "mejor que sean 3 kg", "súmale 1 kg de pulpo"), simplemente vuelve a llamar crear_pedido con la lista COMPLETA y actualizada de productos: el sistema ACTUALIZA su pedido existente (mismo código) en vez de crear otro. La herramienta te dirá si actualizó o creó; confírmale al cliente con ese lenguaje (ej. "actualicé tu pedido MEJ-... " si se actualizó).
-- Cuando llames crear_pedido para una modificación, incluye TODOS los productos que el pedido debe tener al final (no solo el que cambió), porque la lista reemplaza a la anterior.
+- El sistema detecta si el cliente ya tiene un pedido en curso (mismo contacto, reciente) y lo ACTUALIZA en vez de crear otro (mismo código). Tienes DOS formas de modificar, elige con el parámetro modo_actualizacion:
+  · AGREGAR ("agrega pulpo", "súmale 1 kg de camarón"): usa modo_actualizacion="agregar" y en items pon SOLO lo nuevo. El sistema CONSERVA lo que ya tenía y suma lo nuevo. NUNCA borres lo anterior en este caso.
+  · REEMPLAZAR ("mejor que todo sea...", "cámbialo por..."): usa modo_actualizacion="reemplazar" (o déjalo por defecto) y en items pon la lista COMPLETA final.
+- La herramienta te dirá qué pasó (agregó / actualizó / creó) y te dará la LISTA COMPLETA final con el total. Confírmasela al cliente enumerando TODO lo que quedó en el pedido y el total, no solo lo último que agregó.
+- Si el cliente pregunta el total o qué tiene su pedido, y acabas de registrarlo/actualizarlo, respóndele con la lista y el total que te dio la herramienta (los tienes). No digas que no tienes acceso.
 - Si el cliente ya tiene un pedido y dice que quiere hacer OTRO pedido APARTE (adicional), entonces sí pon forzar_pedido_nuevo en true para crear uno nuevo. Si hay duda de si quiere modificar el actual o hacer uno nuevo, PREGÚNTALE antes de registrar.
 
 OTRAS ACCIONES QUE PUEDES SUGERIR:
@@ -464,6 +476,12 @@ const CREAR_PEDIDO_TOOL: LLMTool = {
           description:
             "Normalmente déjalo en false (u omítelo). El sistema detecta si el cliente ya tiene un pedido en curso y lo ACTUALIZA en vez de duplicar. Pon true SOLO si el cliente dijo explícitamente que quiere un pedido ADICIONAL/APARTE del que ya tiene, para forzar la creación de uno nuevo.",
         },
+        modo_actualizacion: {
+          type: "string",
+          enum: ["agregar", "reemplazar"],
+          description:
+            "Solo importa si el cliente ya tiene un pedido en curso. Usa 'agregar' cuando el cliente quiere SUMAR productos a lo que ya pidió (ej. 'agrégale 1 kg de pulpo', 'súmale...'): en 'items' pon SOLO los productos nuevos a agregar, el sistema conserva los anteriores. Usa 'reemplazar' (default) cuando el cliente corrige/redefine todo su pedido: en 'items' pon la lista completa final. Ante la duda, si el cliente dice 'agrega/añade/súmale', usa 'agregar'.",
+        },
       },
       required: ["customerName", "items"],
     },
@@ -486,7 +504,7 @@ export async function processCustomerMessage(
     let content = "";
     let orderCode: string | undefined;
     let orderTotal: number | undefined;
-    let orderAction: "created" | "updated" | "duplicate_ignored" | undefined;
+    let orderAction: "created" | "updated" | "added" | "duplicate_ignored" | undefined;
     try {
       const businessContext = await buildBusinessContext();
       let systemPrompt = AGENT_SYSTEM_PROMPT.replace("{BUSINESS_CONTEXT}", businessContext);
@@ -574,8 +592,8 @@ CANAL ACTUAL: ${canalNombre}.
         // correcto según lo que ocurrió (creado vs actualizado).
         if (!content && orderCode) {
           content =
-            orderAction === "updated"
-              ? `¡Listo! Actualicé tu pedido ${orderCode} con estos productos. Nuestro equipo lo preparará. 🦐`
+            orderAction === "updated" || orderAction === "added"
+              ? `¡Listo! Actualicé tu pedido ${orderCode}. Nuestro equipo lo preparará. 🦐`
               : `¡Listo! Tu pedido quedó registrado con el código ${orderCode}. Nuestro equipo lo preparará. 🦐`;
         }
       } else {
