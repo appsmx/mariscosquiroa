@@ -671,3 +671,38 @@ html {
 }
 .oi-cat-pill:hover { color: #f8fafc; border-color: rgba(94,234,212,.4); }
 .oi-cat-pill.active { color: #041f34; background: linear-gradient(135deg, #5eead4, #0d9488); border-color: transparent; }
+
+
+/* ==========================================================
+   FONDO BASE OSCURO ANTI-FLASH (Océano Interactivo)
+   ----------------------------------------------------------
+   El <body> usa `bg-background`, que en tema claro es casi
+   blanco. En el sitio público el fondo oscuro lo pinta el
+   <canvas> del océano (position:fixed, z-0) vía rAF. Ese rAF
+   se pausa durante el repintado del scroll y en el rebote
+   (overscroll bounce) de móvil, dejando ver por un instante
+   el blanco del <html>/<body> detrás del canvas → "flash
+   blanco" al hacer scroll.
+
+   Solución: dar al <html>/<body> un color de fondo base
+   oscuro (el mismo abismo del canvas) y desactivar el rebote
+   vertical. Así, cualquier zona sin pintar por el canvas o
+   cualquier overscroll muestra el mismo tono profundo, nunca
+   blanco. El panel /admin no se ve afectado porque su layout
+   cubre el viewport con su propio fondo claro
+   (min-h-screen bg-muted/30).
+   ========================================================== */
+html {
+  /* Abismo del océano: coincide con el gradiente del OceanCanvas.
+     Es el color del que el navegador toma el overscroll/rebote. */
+  background-color: #030712;
+  /* Evita el rebote elástico que expone el fondo del navegador. */
+  overscroll-behavior-y: none;
+}
+
+/* Contenedor raíz del sitio público: fondo oscuro sólido bajo el
+   canvas para que ningún repintado deje ver el blanco del <body>.
+   Se aplica por clase (no al <body>) para NO afectar a /admin. */
+.oi-site-root {
+  background-color: #030712;
+}

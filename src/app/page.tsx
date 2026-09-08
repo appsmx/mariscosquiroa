@@ -22,7 +22,7 @@ import { OceanCursor } from "@/components/site/OceanCursor";
 
 export default function Home() {
   return (
-    <div className="relative flex min-h-screen flex-col">
+    <div className="oi-site-root relative flex min-h-screen flex-col">
       {/* Pantalla de carga "Sumergiéndote…" */}
       <OceanPreloader />
       {/* Cursor personalizado "gota del océano" (solo puntero fino) */}
