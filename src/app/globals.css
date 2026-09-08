@@ -412,8 +412,10 @@ html {
   filter: drop-shadow(0 6px 16px rgba(245,158,11,.4));
   animation: oiPreDive 2.6s cubic-bezier(.55,.05,.35,1) infinite;
 }
-/* El SVG cuelga "de cabeza" (nariz hacia abajo) para el clavado */
-.oi-pre-fish svg { display: block; transform: rotate(90deg); }
+/* El SVG cuelga "de cabeza" (nariz hacia abajo) para el clavado.
+   El SVG base tiene la cabeza a la izquierda y la cola a la derecha;
+   con -90deg la cabeza queda ABAJO y la cola arriba (clavado correcto). */
+.oi-pre-fish svg { display: block; transform: rotate(-90deg); }
 /* Aleteo sutil de la cola durante el descenso */
 .oi-fish-tail { transform-origin: 46px 32px; animation: oiFishTail .5s ease-in-out infinite; }
 @keyframes oiFishTail {
