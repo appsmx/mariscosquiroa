@@ -18,7 +18,7 @@ import { createOrderWithDedup } from "@/lib/order-service";
  * Arquitectura: DEC-LOGAN-006 (independencia de proveedor) + modelo reseller.
  */
 
-const LOGAN_LLM_URL = process.env.LOGAN_LLM_URL || "https://logancorp.vercel.app/api/llm";
+const LOGAN_LLM_URL = process.env.LOGAN_LLM_URL || "https://www.loganos.com/api/llm";
 
 type ToolCall = {
   id: string;
