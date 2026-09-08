@@ -347,23 +347,95 @@ html {
 
 .oi-pre-core { position: relative; z-index: 2; display: flex; flex-direction: column; align-items: center; gap: 1.1rem; }
 
-/* Orbe con anillo giratorio (mismo lenguaje que el chat/LOGAN) */
-.oi-pre-orb {
-  width: 92px; height: 92px; border-radius: 50%; position: relative;
-  background: radial-gradient(circle at 32% 28%, #fde68a 0%, #f59e0b 32%, #0d9488 66%, #0c4a6e 100%);
-  box-shadow: 0 0 46px rgba(245,158,11,.4), inset -12px -16px 30px rgba(3,7,18,.6), inset 8px 10px 22px rgba(255,255,255,.18);
-  animation: oiPreBreath 3.2s ease-in-out infinite;
+/* Pez que se zambulle / echa un clavado (mismo lenguaje dorado-aqua LOGAN) */
+.oi-pre-diver {
+  position: relative; display: block;
+  width: 120px; height: 120px;
 }
-.oi-pre-orb::before {
-  content: ''; position: absolute; inset: -11px; border-radius: 50%; padding: 3px;
-  background: conic-gradient(from 0deg, transparent 0 65%, rgba(245,158,11,.95) 82%, #fde68a 88%, transparent 96%);
-  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor; mask-composite: exclude;
-  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-  animation: oiSpin 4.5s linear infinite;
+
+/* Superficie del agua: línea + ondas concéntricas que se abren al entrar el pez */
+.oi-pre-water {
+  position: absolute; left: 50%; top: 62%; transform: translateX(-50%);
+  width: 108px; height: 14px;
 }
-@keyframes oiPreBreath { 0%,100% { transform: scale(1); } 50% { transform: scale(1.05); } }
-@keyframes oiSpin { to { transform: rotate(360deg); } }
+.oi-pre-water::before {
+  content: ''; position: absolute; left: 0; right: 0; top: 50%;
+  height: 2px; border-radius: 99px;
+  background: linear-gradient(90deg, transparent, rgba(94,234,212,.55) 20%, rgba(245,158,11,.55) 80%, transparent);
+  box-shadow: 0 0 12px rgba(13,148,136,.45);
+}
+.oi-pre-ripple {
+  position: absolute; left: 50%; top: 50%; width: 10px; height: 4px;
+  transform: translate(-50%, -50%); border-radius: 50%;
+  border: 1.5px solid rgba(94,234,212,.6);
+  opacity: 0;
+  animation: oiPreRipple 2.6s ease-out infinite;
+}
+.oi-pre-ripple:nth-child(2) { animation-delay: .35s; }
+@keyframes oiPreRipple {
+  /* El splash coincide con el momento en que el pez cruza la superficie (~42%) */
+  0%, 40% { opacity: 0; transform: translate(-50%, -50%) scale(.3); }
+  46% { opacity: .9; }
+  85%, 100% { opacity: 0; transform: translate(-50%, -50%) scale(4.2); }
+}
+
+/* Salpicadura de gotas al momento del clavado */
+.oi-pre-splash {
+  position: absolute; left: 50%; top: 62%; transform: translateX(-50%);
+  width: 2px; height: 2px;
+}
+.oi-pre-splash i {
+  position: absolute; left: 0; top: 0; width: 4px; height: 4px; border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #fde68a, #5eead4 80%);
+  opacity: 0;
+  animation: oiPreSplash 2.6s ease-out infinite;
+}
+.oi-pre-splash i:nth-child(1) { --dx: -22px; --dy: -20px; }
+.oi-pre-splash i:nth-child(2) { --dx: -11px; --dy: -26px; }
+.oi-pre-splash i:nth-child(3) { --dx: 0px;   --dy: -28px; }
+.oi-pre-splash i:nth-child(4) { --dx: 11px;  --dy: -26px; }
+.oi-pre-splash i:nth-child(5) { --dx: 22px;  --dy: -20px; }
+@keyframes oiPreSplash {
+  0%, 40% { opacity: 0; transform: translate(0, 0) scale(.4); }
+  44% { opacity: 1; transform: translate(0, 0) scale(1); }
+  70%, 100% {
+    opacity: 0;
+    transform: translate(var(--dx), calc(var(--dy) * -1)) scale(.3);
+  }
+}
+
+/* El pez: desciende desde arriba, se inclina de cabeza y se sumerge en bucle */
+.oi-pre-fish {
+  position: absolute; left: 50%; top: 0; margin-left: -30px;
+  display: block; width: 60px; height: 60px;
+  transform-origin: 50% 50%;
+  filter: drop-shadow(0 6px 16px rgba(245,158,11,.4));
+  animation: oiPreDive 2.6s cubic-bezier(.55,.05,.35,1) infinite;
+}
+/* El SVG cuelga "de cabeza" (nariz hacia abajo) para el clavado */
+.oi-pre-fish svg { display: block; transform: rotate(90deg); }
+/* Aleteo sutil de la cola durante el descenso */
+.oi-fish-tail { transform-origin: 46px 32px; animation: oiFishTail .5s ease-in-out infinite; }
+@keyframes oiFishTail {
+  0%, 100% { transform: rotate(-9deg); }
+  50% { transform: rotate(9deg); }
+}
+/*
+ * Clavado en bucle:
+ * - 0–40%: el pez cae desde arriba, ligeramente ladeado.
+ * - ~42%: cruza la superficie (aquí disparan splash y ondas).
+ * - 42–72%: se hunde, se encoge y desvanece bajo el agua.
+ * - 72–100%: reaparece arriba para repetir el clavado.
+ */
+@keyframes oiPreDive {
+  0%   { transform: translateY(-6px) rotate(-14deg) scale(1); opacity: 0; }
+  8%   { opacity: 1; }
+  40%  { transform: translateY(52px) rotate(-4deg) scale(1); opacity: 1; }
+  56%  { transform: translateY(78px) rotate(4deg) scale(.82); opacity: .85; }
+  72%  { transform: translateY(104px) rotate(8deg) scale(.55); opacity: 0; }
+  73%  { transform: translateY(-6px) rotate(-14deg) scale(1); opacity: 0; }
+  100% { transform: translateY(-6px) rotate(-14deg) scale(1); opacity: 0; }
+}
 
 .oi-pre-brand {
   font-family: var(--font-playfair), Georgia, serif; font-weight: 800; font-size: 1.35rem;
@@ -406,8 +478,13 @@ html {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .oi-pre-orb, .oi-pre-orb::before, .oi-pre-brand, .oi-pre-dots i, .oi-pre-bar > span, .oi-pre-bubble { animation: none !important; }
-  .oi-pre-bubbles { display: none; }
+  .oi-pre-fish, .oi-fish-tail, .oi-pre-ripple, .oi-pre-splash i,
+  .oi-pre-brand, .oi-pre-dots i, .oi-pre-bar > span, .oi-pre-bubble { animation: none !important; }
+  .oi-pre-bubbles, .oi-pre-splash { display: none; }
+  /* Sin movimiento: el pez descansa quieto sobre la superficie, sin rotación. */
+  .oi-pre-fish { position: relative; left: auto; top: auto; margin: 0; transform: none; opacity: 1; }
+  .oi-pre-fish svg { transform: none; }
+  .oi-pre-water { display: none; }
 }
 
 /* ==========================================================
