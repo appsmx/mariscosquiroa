@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { Plus, Search, Pencil, Trash2, Eye, EyeOff, Package, X, Loader2 } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Plus, Search, Pencil, Trash2, Eye, EyeOff, Package, X, Loader2, Upload } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -310,8 +310,32 @@ function ProductEditor({
 }) {
   const [form, setForm] = useState(product);
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const update = (k: keyof Product, v: any) => setForm({ ...form, [k]: v });
+
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    // Permitir volver a elegir el mismo archivo después.
+    e.target.value = "";
+    if (!file) return;
+
+    setUploading(true);
+    try {
+      const data = new FormData();
+      data.append("file", file);
+      const res = await fetch("/api/admin/upload", { method: "POST", body: data });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json?.error || "No se pudo subir la imagen");
+      update("image", json.url);
+      toast.success("Imagen subida");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Error al subir la imagen");
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const updatePresentation = (i: number, v: string) => {
     const list = [...form.presentations];
@@ -455,11 +479,42 @@ function ProductEditor({
           </div>
 
           <div className="space-y-2">
-            <Label>URL de imagen</Label>
+            <Label>Imagen</Label>
+            <div className="flex flex-wrap items-center gap-2">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/gif,image/avif"
+                className="hidden"
+                onChange={handleUpload}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading}
+              >
+                {uploading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Subiendo...
+                  </>
+                ) : (
+                  <>
+                    <Upload className="h-4 w-4" />
+                    Subir imagen
+                  </>
+                )}
+              </Button>
+              <span className="text-xs text-muted-foreground">
+                JPG, PNG, WebP, GIF o AVIF · máx. 8 MB
+              </span>
+            </div>
             <Input
               value={form.image}
               onChange={(e) => update("image", e.target.value)}
-              placeholder="https://..."
+              placeholder="…o pega una URL: https://..."
             />
             {form.image && (
               <div className="mt-2 aspect-video rounded-lg overflow-hidden bg-muted max-w-xs">
