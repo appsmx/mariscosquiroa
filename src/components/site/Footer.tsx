@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { Phone, Mail, MapPin, Facebook, Instagram, MessageCircle } from "lucide-react";
 import { useSiteConfig } from "@/hooks/use-site-config";
 import { useI18n } from "@/i18n/I18nProvider";
@@ -87,9 +88,11 @@ export function Footer() {
           {/* Brand */}
           <div className="lg:col-span-2">
             <div className="flex items-center gap-3">
-              <img
+              <Image
                 src="/logo.png"
                 alt="Mariscos Quiroa"
+                width={256}
+                height={256}
                 className="h-12 w-12 rounded-xl object-cover ring-1 ring-white/20"
               />
               <div>

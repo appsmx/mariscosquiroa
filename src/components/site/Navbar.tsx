@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { Menu, X, Phone } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSiteConfig } from "@/hooks/use-site-config";
@@ -49,9 +50,12 @@ export function Navbar() {
         <div className="flex h-16 sm:h-20 items-center justify-between gap-4">
           {/* Logo */}
           <Link href="#inicio" className="flex items-center gap-3 group">
-            <img
+            <Image
               src="/logo.png"
               alt="Mariscos Quiroa"
+              width={256}
+              height={256}
+              priority
               className="h-10 w-10 sm:h-12 sm:w-12 shrink-0 rounded-xl object-cover shadow-md"
             />
             <div className="flex flex-col leading-none">
