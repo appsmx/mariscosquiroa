@@ -277,6 +277,11 @@ export default function AdminProducts() {
       {/* Modal de edición */}
       {editing && (
         <ProductEditor
+          // key por producto: fuerza a React a re-montar el editor (y por
+          // tanto a re-inicializar su estado interno `form`) al cambiar de
+          // producto. Sin esto, useState(product) conservaría el producto
+          // abierto anteriormente. "new" para el alta de producto.
+          key={editing.id || "new"}
           product={editing}
           categories={categories}
           open={open}
