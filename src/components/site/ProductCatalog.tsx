@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
+import Image from "next/image";
 import {
   MessageCircle,
   Snowflake,
@@ -147,11 +148,14 @@ function ProductCard({ product, config }: { product: Product; config: any }) {
     >
       {/* Imagen */}
       <div className="oi-card-visual aspect-[4/3]">
-        <img
-          src={product.image}
+        <Image
+          // Fallback al placeholder si un producto no tiene imagen: next/image
+          // lanza error con src vacío (a diferencia de <img>).
+          src={product.image || "/placeholder-producto.svg"}
           alt={product.name}
-          className="h-full w-full object-cover transition-transform duration-500"
-          loading="lazy"
+          fill
+          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+          className="object-cover transition-transform duration-500"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-abyss/90 via-abyss/20 to-transparent" />
         <span className="oi-card-badge">
