@@ -14,6 +14,7 @@ import {
   Menu,
   X,
   MessageSquare,
+  MessageSquareText,
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -23,6 +24,7 @@ const navItems = [
   { href: "/admin/productos", label: "Productos", icon: Package },
   { href: "/admin/pedidos", label: "Pedidos", icon: ShoppingCart },
   { href: "/admin/conversaciones", label: "Conversaciones", icon: MessageSquare },
+  { href: "/admin/comentarios", label: "Comentarios", icon: MessageSquareText },
   { href: "/admin/contenido", label: "Contenido", icon: FileText },
   { href: "/admin/configuracion", label: "Configuración", icon: Settings },
 ];
