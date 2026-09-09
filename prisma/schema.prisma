@@ -348,3 +348,40 @@ model WhatsappMessage {
   @@index([conversationId, createdAt])
 }
 
+
+
+// =====================================================
+//  COMENTARIOS / FEEDBACK DEL SITIO PÚBLICO
+//  Sugerencias y reportes de error que envían los
+//  visitantes desde el footer; se leen en /admin/comentarios.
+// =====================================================
+
+model Feedback {
+  id        String         @id @default(cuid())
+  // Tipo de comentario: SUGERENCIA, ERROR, OTRO
+  type      FeedbackType   @default(OTRO)
+  message   String
+  // Datos de contacto opcionales (por si quieren respuesta)
+  name      String?
+  email     String?
+  // Estado de gestión: NUEVO (sin leer) -> ATENDIDO
+  status    FeedbackStatus @default(NUEVO)
+  // Origen del envío (web, etc.)
+  source    String         @default("web")
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  @@index([status])
+  @@index([createdAt])
+}
+
+enum FeedbackType {
+  SUGERENCIA
+  ERROR
+  OTRO
+}
+
+enum FeedbackStatus {
+  NUEVO
+  ATENDIDO
+}

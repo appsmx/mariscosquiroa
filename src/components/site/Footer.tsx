@@ -7,6 +7,7 @@ import { useSiteConfig } from "@/hooks/use-site-config";
 import { useI18n } from "@/i18n/I18nProvider";
 import { LanguageSwitcher } from "@/components/site/LanguageSwitcher";
 import { LoganSeal } from "@/components/site/LoganSeal";
+import { FeedbackModal } from "@/components/site/FeedbackModal";
 
 export function Footer() {
   const { data: siteConfig } = useSiteConfig();
@@ -207,7 +208,9 @@ export function Footer() {
           {/* Sello Logan */}
           <LoganSeal variant="dark" />
 
-          <div className="flex items-center gap-4">
+          <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2">
+            <FeedbackModal />
+            <span className="hidden sm:inline">·</span>
             <span>{bottomBar}</span>
             <span className="hidden sm:inline">·</span>
             <span>{bottomMade}</span>
