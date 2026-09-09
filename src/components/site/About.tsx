@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { Award, Anchor, Users, MapPin } from "lucide-react";
 import { siteConfig as fallbackConfig } from "@/lib/site-data";
 import { useSiteConfig } from "@/hooks/use-site-config";
@@ -43,11 +44,12 @@ export function About() {
           {/* Imagen */}
           <div className="relative order-2 lg:order-1">
             <div className="relative aspect-[4/5] overflow-hidden rounded-3xl shadow-2xl sm:aspect-[5/6]">
-              <img
-                src={config.images.story}
+              <Image
+                src={config.images.story || "/placeholder-producto.svg"}
                 alt="Puerto pesquero de Rosarito al atardecer"
-                className="h-full w-full object-cover"
-                loading="lazy"
+                fill
+                sizes="(max-width: 1024px) 100vw, 50vw"
+                className="object-cover"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-abyss/70 via-transparent to-transparent" />
             </div>

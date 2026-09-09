@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import {
   Sheet,
   SheetContent,
@@ -229,9 +230,11 @@ export function CartDrawer() {
               {items.map((it, i) => (
                 <div key={i} className="flex gap-3 rounded-lg border border-border p-3">
                   {it.image && (
-                    <img
+                    <Image
                       src={it.image}
                       alt={it.productName}
+                      width={64}
+                      height={64}
                       className="h-16 w-16 rounded-lg object-cover shrink-0"
                     />
                   )}
